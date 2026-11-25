@@ -25,7 +25,7 @@
         var err = p.get('error');
         if (token) {
           var exp = Date.now() + (Number(p.get('expires_in')) || 3600) * 1000;
-          localStorage.setItem(AUTH_KEY, JSON.stringify({ token: token, exp: exp }));
+          localStorage.setItem(AUTH_KEY, JSON.stringify({ token: token, exp: exp, scope: p.get('scope') || '' }));
           location.replace(back);
           return;
         }

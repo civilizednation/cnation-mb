@@ -6,20 +6,18 @@
 ## 1. Google Cloud 설정
 
 1. [Google Cloud Console](https://console.cloud.google.com/projectcreate) → 새 프로젝트 (예: `cnation-mb`)
-2. **API 및 서비스 → 라이브러리** → `Google Drive API`, `Google Picker API` 사용 설정
+2. **API 및 서비스 → 라이브러리** → `Google Drive API` 사용 설정
 3. **OAuth 동의 화면 (Google 인증 플랫폼)**
    - 대상: **외부**
    - 앱 이름 `c.음악비교분석`, 지원 이메일, 개발자 연락처
-   - 데이터 액세스(범위): `https://www.googleapis.com/auth/drive.file` (+ 기본 `openid`, `email`)
-   - **앱 게시(프로덕션으로 푸시)** — `drive.file`은 민감하지 않은 범위라 보안 심사 없이 누구나 사용 가능
-     (게시하지 않고 '테스트' 상태로 두면 등록한 테스트 사용자만 로그인 가능)
+   - 브랜딩: 홈페이지 `https://cnation-mb.vercel.app`, 개인정보처리방침 `https://cnation-mb.vercel.app/privacy.html`, 승인된 도메인 `cnation-mb.vercel.app` (로고는 비워 둠)
+   - 데이터 액세스(범위): `https://www.googleapis.com/auth/drive.readonly` (+ 기본 `openid`, `email`)
+   - **앱 게시(프로덕션으로 푸시)**
+   - `drive.readonly`는 '제한된 범위'라 구글 인증 전에는 로그인 시 "확인되지 않은 앱" 안내(고급 → 이동)가 나오고 사용자 수가 최대 100명으로 제한됨
 4. **사용자 인증 정보 → OAuth 클라이언트 ID → 웹 애플리케이션**
    - 승인된 JavaScript 원본: `https://cnation-mb.vercel.app` (개발용 `http://localhost:5173`)
    - 승인된 리디렉션 URI: `https://cnation-mb.vercel.app/oauth.html` (개발용 `http://localhost:5173/oauth.html`)
-5. **사용자 인증 정보 → API 키**
-   - 애플리케이션 제한: 웹사이트 → `https://cnation-mb.vercel.app/*`
-   - API 제한: Google Picker API, Google Drive API
-6. 프로젝트 대시보드에서 **프로젝트 번호**(숫자) 확인
+5. ~~API 키 / 프로젝트 번호~~ — 더 이상 필요 없음 (v1.6.0부터 구글 Picker 대신 앱 자체 드라이브 화면 사용)
 
 ## 2. Vercel 환경변수
 
@@ -28,17 +26,19 @@ Vercel → `cnation-mb` → Settings → Environment Variables (Production):
 | 이름 | 값 |
 |---|---|
 | `VITE_GOOGLE_CLIENT_ID` | 4번 클라이언트 ID (`…apps.googleusercontent.com`) |
-| `VITE_GOOGLE_API_KEY` | 5번 API 키 |
-| `VITE_GOOGLE_APP_ID` | 6번 프로젝트 번호 |
 
-저장 후 **Deployments → Redeploy** (값은 빌드할 때 앱에 들어갑니다). 세 값은 브라우저에 공개되는 값으로 비밀 정보가 아닙니다.
+저장 후 **Deployments → Redeploy** (값은 빌드할 때 앱에 들어갑니다). 클라이언트 ID는 브라우저에 공개되는 값으로 비밀 정보가 아닙니다.
 
 ## 3. 사용하는 사람
 
 - `설정 → 구글 드라이브 → 구글 계정으로 로그인`, 또는 불러오기/연속 듣기 화면의 **☁️ 구글 드라이브** 버튼
-- 처음 한 번 로그인 → 앱으로 돌아오면 파일 선택 창이 자동으로 열림
-- 다음부터는 버튼만 누르면 바로 선택 (1시간마다 만료되는 토큰은 기억된 계정으로 화면 없이 자동 갱신)
-- 앱은 사용자가 선택 창에서 고른 파일만 접근(`drive.file`)하고, 파일은 그 사람 기기로만 내려받습니다
+- 처음 한 번 로그인 → 앱으로 돌아오면 드라이브 탐색 화면이 자동으로 열림 (내 드라이브 · 최근 · 공유 문서함 · 검색 · 여러 개 선택)
+- 다음부터는 버튼만 누르면 바로 탐색 화면 (1시간마다 만료되는 토큰은 기억된 계정으로 화면 없이 자동 갱신)
+- 읽기 전용(`drive.readonly`), 고른 파일만 그 사람 기기로 내려받습니다
+
+## 왜 구글 Picker를 쓰지 않나요?
+
+구글 파일 선택 창(Picker)은 앱 안에 끼워진 구글 화면(iframe)이라 iPhone Safari·홈 화면 앱의 서드파티 쿠키 차단에 걸려 "Google 계정에 액세스할 수 없습니다 / 쿠키 액세스를 허용하세요" 오류가 납니다. 그래서 Drive REST API로 목록을 직접 불러오는 앱 자체 화면(`src/components/DriveBrowser.tsx`)을 씁니다.
 
 ## 동작 방식 (개발 참고)
 

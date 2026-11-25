@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { Screen } from '../components/Layout';
 import { useSimplePlayer, primeSimpleAudio, AUDIO_ACCEPT, isAudioFile } from '../audio/simplePlayer';
-import { gdriveConfigured, DRIVE_AUDIO_MIMES } from '../gdrive';
+import { gdriveConfigured } from '../gdrive';
 import { DriveButton } from '../components/DriveButton';
 import { formatTime, formatBytes } from '../utils/time';
 import { toast } from '../components/Toast';
@@ -102,7 +102,7 @@ export default function Player() {
         >
           📁 기기 음악 파일
         </button>
-        <DriveButton mimes={DRIVE_AUDIO_MIMES} onFile={(f) => add([f])} />
+        <DriveButton kind="audio" onFile={(f) => add([f])} />
       </div>
       <p className="mb-4 text-xs text-slate-500">mp3 · wav · m4a · aac · ogg · flac 여러 개 선택 가능 (영상 파일은 불러올 수 없어요){!gdriveConfigured ? ' · 구글 드라이브는 준비 중' : ''}</p>
       {/* 재생 목록 */}
