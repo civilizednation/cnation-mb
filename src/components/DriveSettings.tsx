@@ -67,7 +67,7 @@ export function DriveSettings() {
       )}
       <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-slate-400">
         <li>각자 <b>자기 폰에서 자기 구글 계정</b>으로 한 번만 로그인하면, 다음부터는 드라이브 버튼만 누르면 자동으로 연결돼요.</li>
-        <li>내가 드라이브 선택 창에서 고른 파일만 이 기기로 내려받아요. 다른 파일이나 다른 사람 드라이브에는 접근하지 않아요.</li>
+        <li>앱 안의 드라이브 화면에서 폴더·파일 목록을 보여 주고, <b>내가 고른 파일만</b> 이 기기로 내려받아요 (읽기 전용 — 드라이브의 파일을 바꾸거나 지우지 않아요).</li>
         <li>"Google에서 확인하지 않은 앱" 화면이 나오면 <b>고급 → (앱 이름)(으)로 이동</b>을 누르세요.</li>
         <li>"액세스 차단됨"이 나오면 앱 관리자에게 내 구글 이메일 등록을 요청하세요.</li>
       </ul>
@@ -102,9 +102,10 @@ function OwnerGuide() {
         </a>
         에서 새 프로젝트 만들기 (예: cnation-mb)
       </li>
-      <li>API 및 서비스 → 라이브러리 → <b>Google Drive API</b>, <b>Google Picker API</b> 사용 설정</li>
+      <li>API 및 서비스 → 라이브러리 → <b>Google Drive API</b> 사용 설정</li>
       <li>
-        OAuth 동의 화면(Google 인증 플랫폼) → 외부 → 앱 이름 <b>c.음악비교분석</b>, 이메일 입력 → 데이터 액세스(범위)에 <code>drive.file</code> 추가 → <b>앱 게시</b>(프로덕션) — drive.file만 쓰므로 보안 심사 없이 누구나 사용 가능
+        OAuth 동의 화면(Google 인증 플랫폼) → 외부 → 앱 이름 <b>c.음악비교분석</b>, 이메일 · 브랜딩에 홈페이지 <code>{origin}</code>, 개인정보처리방침 <code>{origin}/privacy.html</code>, 승인된 도메인 <code>{location.host}</code> → 데이터 액세스(범위)에 <code>drive.readonly</code> 추가 → <b>앱 게시</b>
+        <br />· 구글 인증 전에는 로그인 시 "확인되지 않은 앱" 안내가 나오고, 사용자 수가 최대 100명으로 제한돼요
       </li>
       <li>
         사용자 인증 정보 → OAuth 클라이언트 ID → <b>웹 애플리케이션</b>
@@ -112,13 +113,7 @@ function OwnerGuide() {
         <br />· 승인된 리디렉션 URI: <code>{redirectUri()}</code>
       </li>
       <li>
-        사용자 인증 정보 → <b>API 키</b> 만들기 → 웹사이트 제한 <code>{origin}/*</code>, API 제한: Picker API·Drive API
-      </li>
-      <li>프로젝트 대시보드의 <b>프로젝트 번호</b>(숫자) 확인</li>
-      <li>
-        Vercel → cnation-mb → Settings → Environment Variables에 추가 후 <b>Redeploy</b>
-        <br />
-        <code>VITE_GOOGLE_CLIENT_ID</code> (4번) · <code>VITE_GOOGLE_API_KEY</code> (5번) · <code>VITE_GOOGLE_APP_ID</code> (6번)
+        Vercel → cnation-mb → Settings → Environment Variables에 <code>VITE_GOOGLE_CLIENT_ID</code>(4번 클라이언트 ID) 추가 후 <b>Redeploy</b>
       </li>
     </ol>
   );

@@ -4,7 +4,6 @@ import { Screen, Section, Toggle } from '../components/Layout';
 import { useImport } from '../store/import';
 import type { ImportItem } from '../pipeline/types';
 import { isVideo } from '../pipeline/process';
-import { DRIVE_MEDIA_MIMES } from '../gdrive';
 import { DriveButton } from '../components/DriveButton';
 import { formatBytes } from '../utils/time';
 import { toast } from '../components/Toast';
@@ -71,7 +70,7 @@ export default function Import() {
           📁 기기 파일
         </button>
         <DriveButton
-          mimes={DRIVE_MEDIA_MIMES}
+          kind="media"
           onFile={(f) => addFiles([f], 'gdrive')}
           onBeforeLogin={() => !items.length || confirm('구글 로그인 화면으로 이동하면 지금 고른 파일 목록이 비워져요. 계속할까요? (로그인은 처음 한 번만 필요해요)')}
         />

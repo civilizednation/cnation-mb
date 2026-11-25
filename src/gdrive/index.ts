@@ -4,25 +4,26 @@
  * - 로그인은 리디렉션 방식 (iOS 홈 화면 앱에서 팝업이 막히는 문제 회피):
  *   accounts.google.com → /oauth.html(토큰 저장) → 원래 화면으로 복귀 → 하려던 파일 선택을 자동으로 이어서 진행
  * - 토큰(1시간)이 만료되면 기억해 둔 계정으로 화면 없이 다시 받아 옴 (prompt=none)
- * - 권한: drive.file — 사용자가 Picker에서 직접 고른 파일만 접근 (구글 보안 심사 불필요)
+ * - 권한: drive.readonly — 앱 안의 드라이브 탐색 화면(DriveBrowser)에서 목록을 보여주고, 사용자가 고른 파일만 내려받음
+ *   (구글 Picker는 iPhone Safari의 서드파티 쿠키 차단 때문에 동작하지 않아 사용하지 않음)
  *
- * 앱 관리자 1회 설정: VITE_GOOGLE_CLIENT_ID / VITE_GOOGLE_API_KEY / VITE_GOOGLE_APP_ID (docs/google-drive-setup.md)
+ * 앱 관리자 1회 설정: VITE_GOOGLE_CLIENT_ID (docs/google-drive-setup.md)
  */
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
-const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY as string | undefined;
-const APP_ID = import.meta.env.VITE_GOOGLE_APP_ID as string | undefined;
-
-export const SCOPE = 'https://www.googleapis.com/auth/drive.file openid email';
+export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
+export const SCOPE = `${DRIVE_SCOPE} openid email`;
 export const AUTH_KEY = 'cnation-mb:gauth';
 export const PENDING_KEY = 'cnation-mb:gpending';
 const ACCOUNT_KEY = 'cnation-mb:gaccount';
 
 /** 앱 관리자가 Google Cloud 설정(환경변수)을 마쳤는지 */
-export const gdriveConfigured = !!(CLIENT_ID && API_KEY && APP_ID);
+export const gdriveConfigured = !!CLIENT_ID;
 
 export interface StoredAuth {
   token: string;
   exp: number;
+  /** 실제로 허용된 권한 (예전 drive.file 토큰이면 다시 동의 필요) */
+  scope?: string;
   error?: string;
 }
 
@@ -36,7 +37,7 @@ function readJson<T>(k: string): T | null {
 
 function validToken(): string | null {
   const a = readJson<StoredAuth>(AUTH_KEY);
-  return a?.token && a.exp > Date.now() + 60_000 ? a.token : null;
+  return a?.token && a.exp > Date.now() + 60_000 && (a.scope ?? '').includes(DRIVE_SCOPE) ? a.token : null;
 }
 
 /** 지금 드라이브를 쓰려면 로그인 화면으로 다녀와야 하는지 */
@@ -177,31 +178,7 @@ export async function disconnect() {
   }
 }
 
-// ---- Picker ----
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) return resolve();
-    const s = document.createElement('script');
-    s.src = src;
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('구글 드라이브 화면을 불러오지 못했어요 (인터넷 연결 확인)'));
-    document.head.appendChild(s);
-  });
-}
-
-let pickerReady: Promise<void> | null = null;
-function ensurePicker() {
-  if (!pickerReady)
-    pickerReady = loadScript('https://apis.google.com/js/api.js')
-      .then(() => new Promise<void>((resolve) => (window as any).gapi.load('picker', () => resolve())))
-      .catch((e) => {
-        pickerReady = null;
-        throw e;
-      });
-  return pickerReady;
-}
-
+// ---- 드라이브 목록 (앱 자체 탐색 화면용) ----
 export interface DriveDoc {
   id: string;
   name: string;
@@ -209,37 +186,71 @@ export interface DriveDoc {
   sizeBytes?: number;
 }
 
-export const DRIVE_AUDIO_MIMES =
-  'audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/aac,audio/ogg,audio/flac,audio/webm,audio/opus';
-export const DRIVE_MEDIA_MIMES =
-  'audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/aac,audio/webm,video/mp4,video/quicktime,video/webm';
+export interface DriveItem extends DriveDoc {
+  isFolder: boolean;
+  modifiedTime?: string;
+}
+
+export type MediaKind = 'audio' | 'media';
+export type ListMode = 'folder' | 'recent' | 'shared' | 'search';
+
+const FOLDER = 'application/vnd.google-apps.folder';
+
+function mimeFilter(kind: MediaKind) {
+  return kind === 'audio' ? "mimeType contains 'audio/'" : "(mimeType contains 'audio/' or mimeType contains 'video/')";
+}
+
+const q = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
 /**
- * 드라이브 파일 선택 창. 로그인이 안 되어 있거나 만료됐으면 로그인으로 이동했다가
- * 돌아와서(consumePendingPick) 다시 호출되면 바로 열린다.
+ * 폴더 내용 / 최근 / 공유 문서함 / 검색. 폴더는 위, 파일은 이름순.
+ * 토큰이 없거나 권한이 부족하면 로그인으로 이동(돌아오면 탐색 화면이 자동으로 다시 열림).
  */
-export async function pickFiles(mimeTypes: string = DRIVE_MEDIA_MIMES): Promise<DriveDoc[]> {
+export async function listDrive(opts: {
+  mode: ListMode;
+  kind: MediaKind;
+  folderId?: string;
+  query?: string;
+  pageToken?: string;
+}): Promise<{ items: DriveItem[]; nextPageToken?: string }> {
   const token = ensureToken();
-  await ensurePicker();
-  const g = (window as any).google;
-  return new Promise((resolve) => {
-    const view = new g.picker.DocsView(g.picker.ViewId.DOCS).setMimeTypes(mimeTypes).setIncludeFolders(true).setSelectFolderEnabled(false);
-    const builder = new g.picker.PickerBuilder()
-      .addView(view)
-      .enableFeature(g.picker.Feature.MULTISELECT_ENABLED)
-      .enableFeature(g.picker.Feature.SUPPORT_DRIVES)
-      .setOAuthToken(token)
-      .setDeveloperKey(API_KEY)
-      .setAppId(APP_ID) // drive.file: 고른 파일에 이 앱의 접근 권한이 부여됨
-      .setLocale('ko')
-      .setOrigin(location.origin)
-      .setCallback((data: any) => {
-        if (data.action === g.picker.Action.PICKED) {
-          resolve((data.docs as any[]).map((d) => ({ id: d.id, name: d.name, mimeType: d.mimeType, sizeBytes: d.sizeBytes ? Number(d.sizeBytes) : undefined })));
-        } else if (data.action === g.picker.Action.CANCEL) resolve([]);
-      });
-    builder.build().setVisible(true);
+  const media = mimeFilter(opts.kind);
+  let where: string;
+  let orderBy = 'folder,name_natural';
+  if (opts.mode === 'folder') where = `'${q(opts.folderId || 'root')}' in parents and trashed = false and (mimeType = '${FOLDER}' or ${media})`;
+  else if (opts.mode === 'shared') where = `sharedWithMe = true and trashed = false and (mimeType = '${FOLDER}' or ${media})`;
+  else if (opts.mode === 'recent') {
+    where = `trashed = false and ${media}`;
+    orderBy = 'viewedByMeTime desc';
+  } else where = `name contains '${q(opts.query ?? '')}' and trashed = false and (mimeType = '${FOLDER}' or ${media})`;
+  const p = new URLSearchParams({
+    q: where,
+    orderBy,
+    pageSize: '100',
+    fields: 'nextPageToken, files(id, name, mimeType, size, modifiedTime)',
+    supportsAllDrives: 'true',
+    includeItemsFromAllDrives: 'true',
+    spaces: 'drive',
   });
+  if (opts.pageToken) p.set('pageToken', opts.pageToken);
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files?${p}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (res.status === 401 || res.status === 403) {
+    localStorage.removeItem(AUTH_KEY);
+    startLogin({ pending: 'pick', forceInteractive: res.status === 403 });
+  }
+  if (!res.ok) throw new Error(`드라이브 목록을 불러오지 못했어요 (${res.status})`);
+  const j = await res.json();
+  return {
+    items: (j.files ?? []).map((f: any) => ({
+      id: f.id,
+      name: f.name,
+      mimeType: f.mimeType,
+      sizeBytes: f.size ? Number(f.size) : undefined,
+      modifiedTime: f.modifiedTime,
+      isFolder: f.mimeType === FOLDER,
+    })),
+    nextPageToken: j.nextPageToken,
+  };
 }
 
 /** Drive 파일 다운로드 (진행률). 토큰이 만료되면 다시 로그인. */

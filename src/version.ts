@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.5.1';
+export const APP_VERSION = '1.6.0';
 
 export interface Revision {
   version: string;
@@ -9,6 +9,17 @@ export interface Revision {
 
 /** 개정 이력 (최신이 위) — 앱 하단 (rev. history) 링크에서 표시 */
 export const REVISIONS: Revision[] = [
+  {
+    version: '1.6.0',
+    date: '2026-11-25',
+    title: '앱 자체 구글 드라이브 화면 (iPhone 대응)',
+    changes: [
+      'iPhone에서 구글 파일 선택 창이 "쿠키 액세스를 허용하세요" 오류로 열리지 않던 문제 해결',
+      '앱 안에 드라이브 탐색 화면 추가 — 내 드라이브 · 최근 · 공유 문서함 · 검색 · 폴더 이동 · 여러 개 선택',
+      '드라이브 권한을 읽기 전용(drive.readonly)으로 변경 (목록 표시용, 고른 파일만 내려받음)',
+      'API 키가 더 이상 필요 없음 (클라이언트 ID만 사용)',
+    ],
+  },
   {
     version: '1.5.1',
     date: '2026-11-25',

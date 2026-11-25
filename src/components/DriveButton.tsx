@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   gdriveConfigured,
-  pickFiles,
+  ensureToken,
   downloadDriveFile,
   consumePendingPick,
   consumeAuthError,
@@ -9,22 +9,25 @@ import {
   isConnected,
   needsLogin,
   RedirectingError,
+  type DriveItem,
+  type MediaKind,
 } from '../gdrive';
 import { ProgressBar } from './Layout';
+import { DriveBrowser } from './DriveBrowser';
 import { toast } from './Toast';
 
 /**
  * 구글 드라이브에서 불러오기 버튼.
- * - 처음: 구글 로그인 화면으로 이동 → 돌아오면 파일 선택 창이 자동으로 열림
- * - 다음부터: 바로 파일 선택 (토큰 만료 시 화면 없이 자동 재연결)
+ * - 처음: 구글 로그인 화면으로 이동 → 돌아오면 드라이브 탐색 화면이 자동으로 열림
+ * - 다음부터: 바로 탐색 화면 (토큰 만료 시 화면 없이 자동 재연결)
  */
 export function DriveButton({
-  mimes,
+  kind,
   onFile,
   onBeforeLogin,
   className = 'btn-ghost py-4',
 }: {
-  mimes: string;
+  kind: MediaKind;
   onFile: (f: File) => void;
   /** 로그인 화면으로 이동하기 전 확인 (false면 취소) */
   onBeforeLogin?: () => boolean;
@@ -32,12 +35,22 @@ export function DriveButton({
 }) {
   const [dl, setDl] = useState<{ name: string; ratio: number; i: number; n: number } | null>(null);
   const [connected, setConnected] = useState(isConnected());
+  const [browsing, setBrowsing] = useState(false);
   const ran = useRef(false);
 
-  const run = async () => {
+  const open = () => {
     try {
-      const docs = await pickFiles(mimes);
-      setConnected(true);
+      ensureToken(); // 없으면 로그인으로 이동 → 돌아와서 자동으로 다시 열림
+      setBrowsing(true);
+    } catch (e) {
+      if (!(e instanceof RedirectingError)) toast(String((e as Error)?.message ?? e), 'error', 5000);
+    }
+  };
+
+  const download = async (docs: DriveItem[]) => {
+    setBrowsing(false);
+    setConnected(true);
+    try {
       for (let i = 0; i < docs.length; i++) {
         const d = docs[i];
         setDl({ name: d.name, ratio: 0, i, n: docs.length });
@@ -45,14 +58,13 @@ export function DriveButton({
         onFile(f);
       }
     } catch (e) {
-      if (e instanceof RedirectingError) return;
-      toast(String((e as Error)?.message ?? e), 'error', 5000);
+      if (!(e instanceof RedirectingError)) toast(String((e as Error)?.message ?? e), 'error', 5000);
     } finally {
       setDl(null);
     }
   };
 
-  // 로그인에서 돌아온 직후: 계정 기억 + 하려던 파일 선택을 자동으로 이어서
+  // 로그인에서 돌아온 직후: 계정 기억 + 드라이브 탐색 화면을 자동으로 다시 열기
   useEffect(() => {
     if (ran.current || !gdriveConfigured) return;
     ran.current = true;
@@ -62,8 +74,8 @@ export function DriveButton({
       return;
     }
     rememberAccount().then(() => setConnected(isConnected()));
-    if (consumePendingPick()) run();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (consumePendingPick()) setBrowsing(true);
+  }, []);
 
   return (
     <>
@@ -72,7 +84,7 @@ export function DriveButton({
         disabled={!gdriveConfigured || !!dl}
         onClick={() => {
           if (needsLogin() && onBeforeLogin && !onBeforeLogin()) return;
-          run();
+          open();
         }}
       >
         <span>☁️ 구글 드라이브</span>
@@ -86,6 +98,7 @@ export function DriveButton({
           <ProgressBar value={dl.ratio} />
         </div>
       )}
+      {browsing && <DriveBrowser kind={kind} onClose={() => setBrowsing(false)} onPick={download} />}
     </>
   );
 }
