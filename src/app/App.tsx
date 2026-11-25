@@ -15,6 +15,7 @@ const Guide = lazy(() => import('../screens/Guide'));
 const History = lazy(() => import('../screens/History'));
 const Poc = lazy(() => import('../screens/Poc'));
 const Install = lazy(() => import('../screens/Install'));
+const Player = lazy(() => import('../screens/Player'));
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/history" element={<History />} />
           <Route path="/poc" element={<Poc />} />
           <Route path="/install" element={<Install />} />
+          <Route path="/player" element={<Player />} />
           <Route path="*" element={<Home />} />
         </Routes>
       </Suspense>

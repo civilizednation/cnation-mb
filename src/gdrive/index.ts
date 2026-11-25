@@ -102,13 +102,15 @@ export interface DriveDoc {
   sizeBytes?: number;
 }
 
-export async function pickFiles(): Promise<DriveDoc[]> {
+export const DRIVE_AUDIO_MIMES = 'audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/aac,audio/ogg,audio/flac,audio/webm,audio/opus';
+
+export async function pickFiles(mimeTypes?: string): Promise<DriveDoc[]> {
   const token = await getToken();
   await ensurePicker();
   const g = (window as any).google;
   return new Promise((resolve) => {
     const view = new g.picker.DocsView(g.picker.ViewId.DOCS)
-      .setMimeTypes('audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/aac,audio/webm,video/mp4,video/quicktime,video/webm')
+      .setMimeTypes(mimeTypes ?? 'audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/aac,audio/webm,video/mp4,video/quicktime,video/webm')
       .setIncludeFolders(true)
       .setSelectFolderEnabled(false);
     const builder = new g.picker.PickerBuilder()

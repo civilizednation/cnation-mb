@@ -5,10 +5,13 @@ import { useSession } from '../store/session';
 import { Songs } from '../db';
 import { formatDate } from '../utils/time';
 import { InstallBanner } from '../components/InstallGuide';
+import { useSimplePlayer } from '../audio/simplePlayer';
 
 export default function Home() {
   const nav = useNavigate();
   const { recent, loadRecent } = useSession();
+  const sp = useSimplePlayer();
+  const nowPlaying = sp.tracks[sp.index];
   const [meta, setMeta] = useState<Record<string, { count: number; best?: string }>>({});
 
   useEffect(() => {
@@ -52,6 +55,13 @@ export default function Home() {
         <span className="text-2xl">🎵</span>
         곡 불러오기 (개별 음악 파일)
         <span className="text-xs font-normal text-slate-400">mp3 · wav · m4a · webm · mp4 · mov 여러 개 선택</span>
+      </button>
+      <button className="btn-ghost mb-2 w-full flex-col py-5" onClick={() => nav('/player')}>
+        <span className="text-2xl">🎧</span>
+        연속 듣기 (플레이어)
+        <span className="text-xs font-normal text-slate-400">
+          {nowPlaying ? `${sp.playing ? '▶ 재생 중' : '❚❚ 일시정지'}: ${nowPlaying.title}` : '음악 파일 여러 개를 골라 바로 이어 듣기 · 전체 반복'}
+        </span>
       </button>
       <Link to="/guide" className="mb-6 block py-2 text-center text-sm text-accent2 underline underline-offset-2">
         📖 녹화 가이드 보기
