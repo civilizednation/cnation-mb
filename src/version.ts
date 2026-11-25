@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 
 export interface Revision {
   version: string;
@@ -9,6 +9,17 @@ export interface Revision {
 
 /** 개정 이력 (최신이 위) — 앱 하단 (rev. history) 링크에서 표시 */
 export const REVISIONS: Revision[] = [
+  {
+    version: '1.1.0',
+    date: '2026-11-25',
+    title: '홈 화면 추가 & 새 아이콘',
+    changes: [
+      '홈 화면 추가 기능: 홈 상단 배너, 설정 메뉴, 공유용 안내 페이지(/#/install)',
+      'Android·Chrome은 버튼 한 번으로 설치, iPhone Safari는 단계별 안내, 카카오톡 등 인앱 브라우저는 "Safari로 열기" 안내',
+      '홈 화면 앱 이름 "c.음악비교분석"',
+      '새 앱 아이콘 (iOS 홈 화면 / Android 적응형 / 파비콘)',
+    ],
+  },
   {
     version: '1.0.0',
     date: '2026-11-25',

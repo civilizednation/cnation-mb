@@ -4,6 +4,7 @@ import { Screen, Section } from '../components/Layout';
 import { useSession } from '../store/session';
 import { Songs } from '../db';
 import { formatDate } from '../utils/time';
+import { InstallBanner } from '../components/InstallGuide';
 
 export default function Home() {
   const nav = useNavigate();
@@ -39,6 +40,8 @@ export default function Home() {
           ⚙︎
         </Link>
       </div>
+
+      <InstallBanner />
 
       <button className="btn-primary mb-3 w-full flex-col py-6 text-lg" onClick={() => nav('/import?mode=recording')}>
         <span className="text-3xl">🎬</span>
