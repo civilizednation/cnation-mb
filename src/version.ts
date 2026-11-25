@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.6.0';
+export const APP_VERSION = '1.7.0';
 
 export interface Revision {
   version: string;
@@ -9,6 +9,18 @@ export interface Revision {
 
 /** 개정 이력 (최신이 위) — 앱 하단 (rev. history) 링크에서 표시 */
 export const REVISIONS: Revision[] = [
+  {
+    version: '1.7.0',
+    date: '2026-11-25',
+    title: '저장공간 자동 정리 & 연속 듣기 저장 한도',
+    changes: [
+      '자동 정리: 앱을 열 때마다 목록·세션에 연결되지 않은 남은 파일을 찾아 삭제',
+      '설정 → 저장공간에 "지금 정리" 버튼 추가',
+      '연속 듣기 저장 한도 설정 (500MB · 1GB · 2GB · 5GB · 무제한, 기본 1GB) — 넘으면 오래된 곡부터 자동 삭제 (지금 듣는 곡·방금 추가한 곡은 유지)',
+      '한 번에 추가한 곡이 한도보다 크면 일부는 "임시"(이번 실행 동안만 재생, 저장 안 함)로 표시',
+      '연속 듣기 화면에 저장 용량 / 한도 표시',
+    ],
+  },
   {
     version: '1.6.0',
     date: '2026-11-25',

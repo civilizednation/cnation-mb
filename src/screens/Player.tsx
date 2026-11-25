@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { Screen } from '../components/Layout';
-import { useSimplePlayer, primeSimpleAudio, AUDIO_ACCEPT, isAudioFile } from '../audio/simplePlayer';
+import { useSimplePlayer, primeSimpleAudio, AUDIO_ACCEPT, isAudioFile, playlistBytes, limitBytes } from '../audio/simplePlayer';
+import { Link } from 'react-router-dom';
 import { gdriveConfigured } from '../gdrive';
 import { DriveButton } from '../components/DriveButton';
 import { formatTime, formatBytes } from '../utils/time';
@@ -116,6 +117,7 @@ export default function Player() {
                   <span className={`w-6 text-center text-sm ${on ? 'text-accent2' : 'text-slate-500'}`}>{on && p.playing ? '♪' : i + 1}</span>
                   <span className={`min-w-0 flex-1 truncate ${on ? 'font-semibold' : ''} ${t.error ? 'text-red-300 line-through' : ''}`}>{t.title}</span>
                   {t.error && <span className="text-xs text-red-300">재생 불가</span>}
+                  {t.temp && <span className="chip bg-amber-500/20 text-amber-300">임시</span>}
                 </button>
                 <button className="btn h-10 min-h-0 w-10 min-w-0 p-0 text-slate-500" aria-label={`${t.title} 삭제`} onClick={() => p.remove(t.id)}>
                   ✕
@@ -128,7 +130,12 @@ export default function Player() {
       {p.saveError && <p className="mt-3 rounded-xl bg-red-500/10 p-3 text-xs text-red-300">일부 곡을 기기에 저장하지 못했어요 (저장공간 부족 등). 이번 실행 동안만 재생됩니다: {p.saveError}</p>}
       {p.tracks.length > 0 && (
         <p className="mt-3 text-xs text-slate-500">
-          목록은 이 기기에 자동 저장돼 앱을 다시 열어도 그대로 남아요 ({formatBytes(p.tracks.reduce((a, t) => a + t.size, 0))}). 다른 화면으로 가거나 화면이 꺼져도 계속 재생돼요.
+          목록은 이 기기에 자동 저장돼 앱을 다시 열어도 그대로 남아요. 저장 {formatBytes(playlistBytes())}
+          {limitBytes() ? ` / 한도 ${formatBytes(limitBytes())} (넘으면 오래된 곡부터 자동 삭제)` : ' (한도 없음)'} ·{' '}
+          <Link to="/settings" className="underline">
+            한도 설정
+          </Link>
+          . 다른 화면으로 가거나 화면이 꺼져도 계속 재생돼요.
         </p>
       )}
     </Screen>

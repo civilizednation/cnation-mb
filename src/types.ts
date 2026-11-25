@@ -83,6 +83,8 @@ export interface AppSettings {
   exportNoticeShown: boolean;
   /** 제목 인식(OCR) 언어 — Tesseract 언어 코드 */
   ocrLangs: OcrLang[];
+  /** 연속 듣기 저장 한도 (MB). 0 = 무제한. 넘으면 오래된 곡부터 자동 삭제 */
+  playlistLimitMB: number;
 }
 
 export type OcrLang = 'kor' | 'eng' | 'chi_sim' | 'chi_tra';
@@ -112,4 +114,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   mp3FadeMs: 10,
   exportNoticeShown: false,
   ocrLangs: ['kor', 'eng', 'chi_sim', 'chi_tra'],
+  playlistLimitMB: 1024,
 };
