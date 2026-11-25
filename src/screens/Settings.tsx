@@ -217,6 +217,9 @@ export default function Settings() {
           <Link to="/poc" className="btn-ghost">
             🧪 기술 검증(PoC) / 진단
           </Link>
+          <a href="/privacy.html" className="btn-ghost">
+            🔒 개인정보처리방침
+          </a>
           <Link to="/history" className="btn-ghost">
             📝 개정 이력 (v{APP_VERSION})
           </Link>

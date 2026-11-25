@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.5.0';
+export const APP_VERSION = '1.5.1';
 
 export interface Revision {
   version: string;
@@ -9,6 +9,15 @@ export interface Revision {
 
 /** 개정 이력 (최신이 위) — 앱 하단 (rev. history) 링크에서 표시 */
 export const REVISIONS: Revision[] = [
+  {
+    version: '1.5.1',
+    date: '2026-11-25',
+    title: '개인정보처리방침 페이지',
+    changes: [
+      '개인정보처리방침 페이지 추가 (/privacy.html) — 구글 로그인 앱 게시에 필요',
+      '앱 하단과 설정 → 도움말에 개인정보처리방침 링크 추가',
+    ],
+  },
   {
     version: '1.5.0',
     date: '2026-11-25',
