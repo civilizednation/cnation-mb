@@ -1,0 +1,42 @@
+# Phase 0 PoC 결과
+
+## 구현으로 확정한 추출 경로
+
+| 순위 | 경로 | 비고 |
+|---|---|---|
+| 1 | **자체 경량 MP4/MOV 파서** (`src/audio/extract/mp4parse.ts`) | `File.slice()`로 박스 헤더와 `moov`만 읽고, 오디오 샘플만 묶어서 읽음(최대 4MB씩). 영상 데이터는 읽지 않음. 재인코딩 없음 |
+| 2 | ffmpeg.wasm (single-thread, WORKERFS) | 조각난(fragmented) MP4, AAC가 아닌 코덱 등. 코어는 `/vendor/ffmpeg`에서 자체 호스팅 |
+| 3 | `decodeAudioData(전체)` | 200MB 미만 파일만 |
+
+- 기획서의 mp4box.js 대신 자체 파서를 쓴 이유: mp4box는 append한 버퍼를 내부에 쌓아 두는데, 400MB 파일에서 영상 트랙 데이터까지 메모리에 남을 수 있음. 자체 파서는 샘플 테이블(stsz/stco/stsc/stts)로 오디오 바이트 위치만 계산해서 읽으므로 메모리 사용량이 **AAC 데이터 크기(15분 ≈ 15~30MB)**로 제한됨.
+- ADTS `decodeAudioData` 지원 여부는 **실행 시 자동 판별**: 첫 200프레임으로 ADTS 디코딩을 시도하고, 실패하면 audio-only M4A(`src/audio/extract/m4aMux.ts`)로 자동 전환.
+- 곡별 Blob의 시작점은 고음질 디코딩 결과에서 **샘플 단위로 다시 탐지**(±0.25s 범위)하고, 디코더 오프셋은 중앙값으로 보정.
+- MP3 내보내기에는 LAME/Info 갭리스 태그를 기록해 인코더 지연(≈25ms)을 제거.
+
+## 개발 환경 측정 (Linux, Headless Chromium, 합성 녹화 2:58 / 4.8MB, AAC 44.1kHz)
+
+| 단계 | 결과 |
+|---|---|
+| 추출 → 8kHz 디코딩 → 곡 분리 | 약 1.4s |
+| 곡 경계 (정답 4.0 / 47.0 / 84.5 / 133.5s) | 4.0 / 47.0 / 84.5 / 133.5s — **100% 정확** |
+| 앞쪽 녹화 여유 + 알림음(80ms 잡음) | 제거됨 |
+| 곡 중간 0.6s 브레이크 | 경계로 오인하지 않음 |
+| OCR (ROI 지정, kor+eng) | 4곡 모두 정확, 신뢰도 92~96, 중복 제목 → `Moonlight Road 1/2` |
+| MP3 내보내기 (256kbps) 첫 소리 오차 | **0.2ms**, 길이 오차 0ms |
+| ffmpeg.wasm 폴백 (fragmented MP4) | 동일한 경계로 분리 |
+
+## 아이폰 실기기 측정 (작성 필요)
+
+앱의 **설정 → 기술 검증(PoC)** 화면에서 15분 / 약 400MB 화면 녹화 파일을 선택하면 단계별 소요 시간이 표시됩니다.
+
+| 항목 | iPhone 14 Pro Max / iOS Safari |
+|---|---|
+| iOS 버전 | |
+| 파일 (길이 / 크기 / 컨테이너) | |
+| 1. 오디오 추출 | |
+| 2. 8kHz 디코딩 | |
+| 3. 곡 분리 | |
+| 4. video seek + canvas 캡처 | |
+| ADTS 디코딩 (adts / m4a 중 선택된 것) | |
+| navigator.audioSession | |
+| 탭 재로드(크래시) 여부 | |
