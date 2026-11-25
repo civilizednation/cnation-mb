@@ -8,7 +8,9 @@ import { formatBytes, formatDate } from '../utils/time';
 import { DriveSettings } from '../components/DriveSettings';
 import { DEFAULT_SILENCE, OCR_LANGS, type SilenceParams } from '../types';
 import { APP_VERSION } from '../version';
-import { useSimplePlayer } from '../audio/simplePlayer';
+import { useSimplePlayer, playlistBytes, playlistBlobKeys } from '../audio/simplePlayer';
+import { cleanupOrphanBlobs } from '../db/cleanup';
+import { toast } from '../components/Toast';
 
 const PARAMS: { k: keyof SilenceParams; label: string; unit: string; step: number; min: number; max: number }[] = [
   { k: 'windowMs', label: 'RMS 창', unit: 'ms', step: 5, min: 5, max: 100 },
@@ -25,6 +27,7 @@ export default function Settings() {
   const [usage, setUsage] = useState<{ usage: number; quota: number; perSession: Record<string, number> } | null>(null);
   const [adv, setAdv] = useState(false);
   const pl = useSimplePlayer();
+  const [cleaning, setCleaning] = useState(false);
 
   const refresh = async () => {
     await loadRecent();
@@ -137,7 +140,8 @@ export default function Settings() {
             <div className="min-w-0 flex-1">
               <div>🎧 연속 듣기 목록</div>
               <div className="text-xs text-slate-500">
-                {pl.tracks.length}곡 · {formatBytes(pl.tracks.reduce((a, t) => a + t.size, 0))}
+                {pl.tracks.length}곡 · {formatBytes(playlistBytes())}
+                {settings.playlistLimitMB > 0 ? ` / 한도 ${formatBytes(settings.playlistLimitMB * 1024 * 1024)}` : ' / 한도 없음'}
               </div>
             </div>
             <button
@@ -151,6 +155,49 @@ export default function Settings() {
               }}
             >
               비우기
+            </button>
+          </div>
+          <div className="mb-3">
+            <span className="label">연속 듣기 저장 한도 (넘으면 오래된 곡부터 자동 삭제)</span>
+            <div className="grid grid-cols-5 gap-1">
+              {[500, 1024, 2048, 5120, 0].map((mb) => (
+                <button
+                  key={mb}
+                  className={`btn h-10 min-h-0 min-w-0 px-1 text-sm ${settings.playlistLimitMB === mb ? 'bg-accent text-white' : 'bg-panel2 text-slate-300'}`}
+                  onClick={() => {
+                    const bytes = mb * 1024 * 1024;
+                    if (mb > 0 && playlistBytes() > bytes && !confirm(`지금 목록이 ${formatBytes(playlistBytes())}라서 오래된 곡부터 정리돼요. 계속할까요?`)) return;
+                    update({ playlistLimitMB: mb });
+                    const r = pl.enforceLimit();
+                    if (r.count) toast(`오래된 곡 ${r.count}개(${formatBytes(r.bytes)})를 정리했어요`);
+                    setTimeout(refresh, 500);
+                  }}
+                >
+                  {mb === 0 ? '무제한' : mb < 1024 ? `${mb}MB` : `${mb / 1024}GB`}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mb-3 flex items-center gap-2 rounded-xl bg-panel2 p-3 text-sm">
+            <div className="min-w-0 flex-1">
+              <div>🧹 자동 정리</div>
+              <div className="text-xs text-slate-400">앱을 열 때마다 목록·세션에 없는 남은 파일을 자동으로 지워요.</div>
+            </div>
+            <button
+              className="btn-ghost h-9 min-h-0 shrink-0 px-3 text-sm"
+              disabled={cleaning}
+              onClick={async () => {
+                setCleaning(true);
+                try {
+                  const r = await cleanupOrphanBlobs(playlistBlobKeys);
+                  toast(r.count ? `남은 파일 ${r.count}개(${formatBytes(r.bytes)})를 정리했어요` : '정리할 파일이 없어요 — 깨끗해요 ✨');
+                  refresh();
+                } finally {
+                  setCleaning(false);
+                }
+              }}
+            >
+              {cleaning ? '정리 중…' : '지금 정리'}
             </button>
           </div>
           <button

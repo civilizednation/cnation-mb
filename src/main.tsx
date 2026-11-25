@@ -4,12 +4,20 @@ import { registerSW } from 'virtual:pwa-register';
 import App from './app/App';
 import { initInstallCapture } from './install';
 import { initAudioSession, kickAudio } from './audio/decode';
-import { restorePlaylist } from './audio/simplePlayer';
+import { restorePlaylist, playlistBlobKeys, useSimplePlayer } from './audio/simplePlayer';
+import { cleanupOrphanBlobs } from './db/cleanup';
 import './index.css';
 
 initInstallCapture();
 initAudioSession();
-restorePlaylist();
+// 저장된 연속 듣기 목록 복원 → 저장 한도 적용 → 남은 고아 파일 자동 정리
+restorePlaylist()
+  .then(() => useSimplePlayer.getState().enforceLimit())
+  .then(() => cleanupOrphanBlobs(playlistBlobKeys))
+  .then((r) => {
+    if (r.count) console.info(`[cleanup] 고아 파일 ${r.count}개 정리 (${r.bytes} bytes)`);
+  })
+  .catch(() => {});
 // iOS: 오디오가 멈춰 있으면(suspended/interrupted) 어떤 탭이든 그 안에서 바로 깨운다
 for (const ev of ['pointerdown', 'touchend', 'click', 'keydown'] as const) {
   document.addEventListener(ev, kickAudio, { capture: true, passive: true });

@@ -4,6 +4,9 @@ import { uid } from '../utils/id';
 import { encodeWav } from './decode';
 import { claimAudio, onOtherAudio } from './exclusive';
 import { Blobs, SettingsStore, requestPersist } from '../db';
+import { useSettings } from '../store/settings';
+import { toast } from '../components/Toast';
+import { formatBytes } from '../utils/time';
 
 /**
  * 단순 연속 재생 플레이어 (HTML <audio>).
@@ -19,6 +22,8 @@ export interface Track {
   /** IndexedDB blobs 저장소 키 (목록 저장용) */
   blobKey: string;
   error?: boolean;
+  /** 저장 한도보다 커서 기기에 저장하지 않은 곡 — 이번 실행 동안만 재생 */
+  temp?: boolean;
 }
 
 /** 저장 형식 */
@@ -36,7 +41,7 @@ function savePlaylist(delay = 400) {
   saveTimer = setTimeout(() => {
     const { tracks, index, time } = useSimplePlayer.getState();
     const data: SavedPlaylist = {
-      tracks: tracks.map(({ id, name, title, size, blobKey }) => ({ id, name, title, size, blobKey })),
+      tracks: tracks.filter((t) => !t.temp).map(({ id, name, title, size, blobKey }) => ({ id, name, title, size, blobKey })),
       index,
       time,
     };
@@ -65,6 +70,8 @@ interface S {
   remove: (id: string) => void;
   clear: () => void;
   setRepeat: (v: boolean) => void;
+  /** 저장 한도에 맞춰 오래된 곡부터 정리. 지운 곡 수·용량 반환 */
+  enforceLimit: (protectIds?: Set<string>) => { count: number; bytes: number };
 }
 
 let audio: HTMLAudioElement | null = null;
@@ -179,10 +186,31 @@ export const useSimplePlayer = create<S>((set, get) => ({
     const start = get().tracks.length;
     set({ tracks: [...get().tracks, ...add] });
     if (autoplay && wasEmpty) get().playAt(start);
+
+    // 저장 한도: 오래된 곡부터 정리, 그래도 넘치면 새 곡 일부는 '임시'(저장 안 함)
+    const limit = limitBytes();
+    if (limit > 0) {
+      const ev = get().enforceLimit(new Set(add.map((t) => t.id)));
+      let used = playlistBytes();
+      const temps = new Set<string>();
+      for (let i = add.length - 1; i >= 0 && used > limit; i--) {
+        temps.add(add[i].id);
+        used -= add[i].size;
+      }
+      if (temps.size) set({ tracks: get().tracks.map((t) => (temps.has(t.id) ? { ...t, temp: true } : t)) });
+      if (ev.count || temps.size) {
+        const msgs = [];
+        if (ev.count) msgs.push(`저장 한도(${formatBytes(limit)})를 넘어 오래된 곡 ${ev.count}개(${formatBytes(ev.bytes)})를 목록에서 정리했어요`);
+        if (temps.size) msgs.push(`${temps.size}곡은 한도보다 커서 이번 실행 동안만 재생돼요 (저장 안 됨)`);
+        toast(msgs.join(' · '), 'info', 5000);
+      }
+    }
     // 파일을 기기 저장소(IndexedDB)에 보관 → 앱을 다시 열어도 목록 유지
     (async () => {
       await requestPersist();
       for (let i = 0; i < add.length; i++) {
+        const cur = get().tracks.find((t) => t.id === add[i].id);
+        if (!cur || cur.temp) continue; // 이미 지웠거나 임시 곡
         try {
           await Blobs.put(add[i].blobKey, files[i]);
         } catch (e) {
@@ -297,6 +325,24 @@ export const useSimplePlayer = create<S>((set, get) => ({
     }
     set({ repeatAll: v });
   },
+
+  enforceLimit: (protectIds = new Set()) => {
+    const limit = limitBytes();
+    let count = 0;
+    let bytes = 0;
+    if (limit <= 0) return { count, bytes };
+    // 목록 순서 = 추가한 순서 → 앞쪽(오래된 곡)부터, 지금 듣는 곡·방금 추가한 곡은 제외
+    for (;;) {
+      if (playlistBytes() <= limit) break;
+      const { tracks, index } = get();
+      const victim = tracks.find((t, i) => !t.temp && i !== index && !protectIds.has(t.id));
+      if (!victim) break;
+      count++;
+      bytes += victim.size;
+      get().remove(victim.id);
+    }
+    return { count, bytes };
+  },
 }));
 
 /** 앱 시작 시: 저장된 연속 듣기 목록 복원 (자동 재생은 하지 않음 — 이어 듣기 위치 기억) */
@@ -327,9 +373,20 @@ export async function restorePlaylist() {
   }
 }
 
-/** 저장된 연속 듣기 목록 용량 */
+/** 기기에 저장된 연속 듣기 목록 용량 (임시 곡 제외) */
 export function playlistBytes(): number {
-  return useSimplePlayer.getState().tracks.reduce((a, t) => a + t.size, 0);
+  return useSimplePlayer.getState().tracks.reduce((a, t) => a + (t.temp ? 0 : t.size), 0);
+}
+
+/** 저장 한도 (바이트). 0 = 무제한 */
+export function limitBytes(): number {
+  const mb = useSettings.getState().settings.playlistLimitMB ?? 0;
+  return mb > 0 ? mb * 1024 * 1024 : 0;
+}
+
+/** 지금 목록이 참조하는 저장 파일 키 (자동 정리 시 보호) */
+export function playlistBlobKeys(): string[] {
+  return useSimplePlayer.getState().tracks.filter((t) => !t.temp).map((t) => t.blobKey);
 }
 
 /** 재생 가능한 오디오 파일만 (영상 제외) */
