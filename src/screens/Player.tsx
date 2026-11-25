@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Screen, ProgressBar } from '../components/Layout';
 import { useSimplePlayer, primeSimpleAudio, AUDIO_ACCEPT, isAudioFile } from '../audio/simplePlayer';
 import { gdriveConfigured, pickFiles, downloadDriveFile, DRIVE_AUDIO_MIMES } from '../gdrive';
-import { formatTime } from '../utils/time';
+import { formatTime, formatBytes } from '../utils/time';
 import { toast } from '../components/Toast';
 
 /** 단순 연속 듣기 플레이어: 음악 파일 여러 개 → 바로 이어서 재생, 전체 반복 */
@@ -68,7 +68,7 @@ export default function Player() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-lg font-bold">{cur ? cur.title : '음악 파일을 추가하세요'}</div>
-            <div className="text-sm text-slate-400">{cur ? `${p.index + 1} / ${p.tracks.length}` : '여러 곡을 골라 이어서 들어요'}</div>
+            <div className="text-sm text-slate-400">{cur ? `${p.index + 1} / ${p.tracks.length}${!p.playing && p.time > 1 ? ` · ${formatTime(p.time, 0)}부터 이어 듣기` : ''}` : '여러 곡을 골라 이어서 들어요'}</div>
           </div>
         </div>
 
@@ -154,7 +154,12 @@ export default function Player() {
           })}
         </ul>
       )}
-      {p.tracks.length > 0 && <p className="mt-3 text-xs text-slate-500">다른 화면으로 가거나 화면이 꺼져도 계속 재생돼요. 목록은 앱을 닫으면 비워집니다.</p>}
+      {p.saveError && <p className="mt-3 rounded-xl bg-red-500/10 p-3 text-xs text-red-300">일부 곡을 기기에 저장하지 못했어요 (저장공간 부족 등). 이번 실행 동안만 재생됩니다: {p.saveError}</p>}
+      {p.tracks.length > 0 && (
+        <p className="mt-3 text-xs text-slate-500">
+          목록은 이 기기에 자동 저장돼 앱을 다시 열어도 그대로 남아요 ({formatBytes(p.tracks.reduce((a, t) => a + t.size, 0))}). 다른 화면으로 가거나 화면이 꺼져도 계속 재생돼요.
+        </p>
+      )}
     </Screen>
   );
 }

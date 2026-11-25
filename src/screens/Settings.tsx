@@ -9,6 +9,7 @@ import { gdriveConfigured, isConnected, getToken, disconnect } from '../gdrive';
 import { DEFAULT_SILENCE, OCR_LANGS, type SilenceParams } from '../types';
 import { toast } from '../components/Toast';
 import { APP_VERSION } from '../version';
+import { useSimplePlayer } from '../audio/simplePlayer';
 
 const PARAMS: { k: keyof SilenceParams; label: string; unit: string; step: number; min: number; max: number }[] = [
   { k: 'windowMs', label: 'RMS 창', unit: 'ms', step: 5, min: 5, max: 100 },
@@ -25,6 +26,7 @@ export default function Settings() {
   const [usage, setUsage] = useState<{ usage: number; quota: number; perSession: Record<string, number> } | null>(null);
   const [gConnected, setGConnected] = useState(isConnected());
   const [adv, setAdv] = useState(false);
+  const pl = useSimplePlayer();
 
   const refresh = async () => {
     await loadRecent();
@@ -161,17 +163,37 @@ export default function Settings() {
             ))}
             {!recent.length && <li className="text-sm text-slate-500">저장된 세션이 없어요</li>}
           </ul>
+          <div className="mb-3 flex items-center gap-2 border-t border-line pt-3 text-sm">
+            <div className="min-w-0 flex-1">
+              <div>🎧 연속 듣기 목록</div>
+              <div className="text-xs text-slate-500">
+                {pl.tracks.length}곡 · {formatBytes(pl.tracks.reduce((a, t) => a + t.size, 0))}
+              </div>
+            </div>
+            <button
+              className="btn-danger h-9 min-h-0 px-3 text-sm"
+              disabled={!pl.tracks.length}
+              onClick={async () => {
+                if (confirm('연속 듣기 목록을 비울까요?')) {
+                  pl.clear();
+                  setTimeout(refresh, 500);
+                }
+              }}
+            >
+              비우기
+            </button>
+          </div>
           <button
             className="btn-danger w-full"
             disabled={!recent.length}
             onClick={async () => {
-              if (confirm('모든 세션과 곡을 삭제할까요? 되돌릴 수 없어요.')) {
+              if (confirm('모든 비교 세션과 곡을 삭제할까요? (연속 듣기 목록은 유지) 되돌릴 수 없어요.')) {
                 await clearAll();
                 refresh();
               }
             }}
           >
-            전체 삭제
+            비교 세션 전체 삭제
           </button>
         </div>
       </Section>

@@ -105,6 +105,9 @@ export const Blobs = {
   async put(key: string, b: Blob) {
     return wrapQuota((await db()).put('blobs', b, key));
   },
+  async delete(key: string) {
+    return (await db()).delete('blobs', key);
+  },
 };
 
 export const SettingsStore = {
@@ -140,9 +143,15 @@ export async function storageUsage(): Promise<{ usage: number; quota: number; pe
   return { usage, quota, perSession };
 }
 
+/** 비교 세션·곡 데이터만 모두 삭제 (연속 듣기 목록은 유지) */
 export async function clearAll() {
   const d = await db();
+  const songs = await d.getAll('songs');
   const tx = d.transaction(['sessions', 'songs', 'blobs'], 'readwrite');
-  await Promise.all([tx.objectStore('sessions').clear(), tx.objectStore('songs').clear(), tx.objectStore('blobs').clear()]);
+  for (const s of songs) {
+    tx.objectStore('blobs').delete(s.audioBlobKey);
+    if (s.thumbnailBlobKey) tx.objectStore('blobs').delete(s.thumbnailBlobKey);
+  }
+  await Promise.all([tx.objectStore('sessions').clear(), tx.objectStore('songs').clear()]);
   await tx.done;
 }
