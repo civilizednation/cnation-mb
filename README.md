@@ -6,7 +6,8 @@ Suno로 만든 여러 곡을 **아이폰 화면 녹화 영상 1개** 또는 **�
 
 - 모든 처리는 **브라우저 안에서** 이루어집니다 (서버 업로드 없음, 백엔드 없음).
 - 우선 지원: iPhone / iOS Safari (홈 화면에 추가). 데스크톱 Chrome·Safari 보조 지원.
-- 버전: **v1.0.0** — 앱 맨 아래 `(rev. history)` 링크에서 개정 이력을 볼 수 있습니다. ([CHANGELOG](CHANGELOG.md))
+- 배포: **https://cnation-mb.vercel.app** — 아이폰 Safari로 열고 공유 → "홈 화면에 추가" (앱 이름: c.음악비교분석, 안내 페이지: `/#/install`)
+- 버전: **v1.1.0** — 앱 맨 아래 `(rev. history)` 링크에서 개정 이력을 볼 수 있습니다. ([CHANGELOG](CHANGELOG.md))
 
 ## 사용 흐름
 

@@ -192,6 +192,9 @@ export default function Settings() {
 
       <Section title="도움말">
         <div className="card flex flex-col gap-2">
+          <Link to="/install" className="btn-ghost">
+            📲 홈 화면에 추가
+          </Link>
           <Link to="/guide" className="btn-ghost">
             📖 녹화 가이드
           </Link>
