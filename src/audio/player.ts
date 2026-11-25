@@ -1,6 +1,7 @@
 import { Blobs } from '../db';
 import type { Song } from '../types';
 import { getAudioContext, unlockAudio, resetAudioContext, peekAudioContext } from './decode';
+import { claimAudio, onOtherAudio } from './exclusive';
 
 const FADE = 0.01; // 10ms
 const MAX_CACHE = 3;
@@ -132,6 +133,7 @@ class Player {
    */
   async play(song: Song, relStart: number, relEnd: number, opts: { onEnded?: () => void; loop?: boolean; from?: number } = {}) {
     await unlockAudio();
+    claimAudio('compare');
     const token = ++this.token;
     this.stopNode();
     this.song = song;
@@ -272,6 +274,7 @@ class Player {
 }
 
 export const player = new Player();
+if (typeof window !== 'undefined') onOtherAudio('compare', () => player.pause());
 export const songLength = Player.lengthOf;
 
 // ---- 화면 꺼짐 방지 / 잠금화면 메타데이터 ----

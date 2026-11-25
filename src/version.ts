@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.2.0';
+export const APP_VERSION = '1.3.0';
 
 export interface Revision {
   version: string;
@@ -9,6 +9,17 @@ export interface Revision {
 
 /** 개정 이력 (최신이 위) — 앱 하단 (rev. history) 링크에서 표시 */
 export const REVISIONS: Revision[] = [
+  {
+    version: '1.3.0',
+    date: '2026-11-25',
+    title: '연속 듣기 플레이어',
+    changes: [
+      '홈에 "연속 듣기 (플레이어)" 추가 — 기기 또는 구글 드라이브의 음악 파일 여러 개를 골라 바로 이어서 재생 (영상 파일 제외)',
+      '전체 반복 ON/OFF, 이전/다음 곡, 재생 위치 이동, 목록에서 곡 선택·삭제',
+      '다른 화면으로 이동하거나 화면이 꺼져도 계속 재생, 잠금화면에서 재생/다음 곡 조작',
+      '비교 재생을 시작하면 플레이어는 자동으로 일시정지',
+    ],
+  },
   {
     version: '1.2.0',
     date: '2026-11-25',
