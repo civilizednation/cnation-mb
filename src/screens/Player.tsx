@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
-import { Screen, ProgressBar } from '../components/Layout';
+import { useRef } from 'react';
+import { Screen } from '../components/Layout';
 import { useSimplePlayer, primeSimpleAudio, AUDIO_ACCEPT, isAudioFile } from '../audio/simplePlayer';
-import { gdriveConfigured, pickFiles, downloadDriveFile, DRIVE_AUDIO_MIMES } from '../gdrive';
+import { gdriveConfigured, DRIVE_AUDIO_MIMES } from '../gdrive';
+import { DriveButton } from '../components/DriveButton';
 import { formatTime, formatBytes } from '../utils/time';
 import { toast } from '../components/Toast';
 
@@ -9,31 +10,12 @@ import { toast } from '../components/Toast';
 export default function Player() {
   const p = useSimplePlayer();
   const input = useRef<HTMLInputElement>(null);
-  const [dl, setDl] = useState<{ name: string; ratio: number; i: number; n: number } | null>(null);
   const cur = p.tracks[p.index];
 
   const add = (files: File[]) => {
     const ok = files.filter(isAudioFile);
     if (ok.length < files.length) toast(`음악 파일이 아닌 ${files.length - ok.length}개(영상 등)는 제외했어요`, 'error');
     p.addFiles(ok);
-  };
-
-  const fromDrive = async () => {
-    primeSimpleAudio();
-    try {
-      const docs = await pickFiles(DRIVE_AUDIO_MIMES);
-      for (let i = 0; i < docs.length; i++) {
-        const d = docs[i];
-        if (/^video\//.test(d.mimeType)) continue;
-        setDl({ name: d.name, ratio: 0, i, n: docs.length });
-        const f = await downloadDriveFile(d, (l, t) => setDl({ name: d.name, ratio: t ? l / t : 0, i, n: docs.length }));
-        add([f]); // 받는 대로 바로 추가 → 첫 곡부터 즉시 재생
-      }
-    } catch (e) {
-      toast(String((e as Error)?.message ?? e), 'error', 4000);
-    } finally {
-      setDl(null);
-    }
   };
 
   return (
@@ -120,20 +102,9 @@ export default function Player() {
         >
           📁 기기 음악 파일
         </button>
-        <button className="btn-ghost py-4" disabled={!gdriveConfigured || !!dl} onClick={fromDrive}>
-          ☁️ 구글 드라이브
-        </button>
+        <DriveButton mimes={DRIVE_AUDIO_MIMES} onFile={(f) => add([f])} />
       </div>
-      <p className="mb-4 text-xs text-slate-500">mp3 · wav · m4a · aac · ogg · flac 여러 개 선택 가능 (영상 파일은 불러올 수 없어요){!gdriveConfigured ? ' · 구글 드라이브는 설정 후 사용 가능' : ''}</p>
-      {dl && (
-        <div className="card mb-4">
-          <div className="mb-2 truncate text-sm">
-            드라이브에서 받는 중 ({dl.i + 1}/{dl.n}): {dl.name}
-          </div>
-          <ProgressBar value={dl.ratio} />
-        </div>
-      )}
-
+      <p className="mb-4 text-xs text-slate-500">mp3 · wav · m4a · aac · ogg · flac 여러 개 선택 가능 (영상 파일은 불러올 수 없어요){!gdriveConfigured ? ' · 구글 드라이브는 준비 중' : ''}</p>
       {/* 재생 목록 */}
       {p.tracks.length > 0 && (
         <ul className="space-y-1.5">

@@ -174,7 +174,8 @@ export const useSimplePlayer = create<S>((set, get) => ({
       blobKey: uid('pl_'),
     }));
     if (!add.length) return;
-    const wasEmpty = get().index < 0 || !get().playing;
+    // 선택된 곡이 없을 때만 새 곡으로 시작 (여러 곡을 연달아 추가해도 첫 곡 유지)
+    const wasEmpty = get().index < 0;
     const start = get().tracks.length;
     set({ tracks: [...get().tracks, ...add] });
     if (autoplay && wasEmpty) get().playAt(start);

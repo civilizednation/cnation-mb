@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.4.0';
+export const APP_VERSION = '1.5.0';
 
 export interface Revision {
   version: string;
@@ -9,6 +9,18 @@ export interface Revision {
 
 /** 개정 이력 (최신이 위) — 앱 하단 (rev. history) 링크에서 표시 */
 export const REVISIONS: Revision[] = [
+  {
+    version: '1.5.0',
+    date: '2026-11-25',
+    title: '구글 계정 로그인으로 드라이브 자동 연결',
+    changes: [
+      '각자 자기 폰에서 "구글 계정으로 로그인"을 한 번 하면 다음부터 드라이브 버튼만 눌러도 자동 연결',
+      '로그인 후 앱으로 돌아오면 파일 선택 창이 자동으로 이어서 열림 (불러오기·연속 듣기 화면)',
+      '1시간마다 만료되는 연결은 기억된 계정으로 화면 없이 자동 갱신',
+      '권한을 "내가 고른 파일만"(drive.file)으로 축소 — 다른 파일에는 접근하지 않음',
+      '설정 → 구글 드라이브: 연결 상태·계정 표시, 연결 해제, 사용 안내, 관리자용 설정 방법',
+    ],
+  },
   {
     version: '1.4.0',
     date: '2026-11-25',
