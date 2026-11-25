@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.7.0';
+export const APP_VERSION = '1.8.0';
 
 export interface Revision {
   version: string;
@@ -9,6 +9,16 @@ export interface Revision {
 
 /** 개정 이력 (최신이 위) — 앱 하단 (rev. history) 링크에서 표시 */
 export const REVISIONS: Revision[] = [
+  {
+    version: '1.8.0',
+    date: '2026-11-25',
+    title: '연속 듣기 이퀄라이저',
+    changes: [
+      '연속 듣기 화면의 곡 제목과 진행바 사이에 이퀄라이저 추가 (둥근 막대 28개, 보라 → 하늘색)',
+      '곡을 처음 재생할 때 한 번 분석해 재생 위치에 맞춰 움직임 — 백그라운드·잠금화면 재생에 영향 없음',
+      '화면이 보이고 재생 중일 때만 그려서 배터리 부담 최소화, 일시정지하면 막대가 가라앉음',
+    ],
+  },
   {
     version: '1.7.0',
     date: '2026-11-25',

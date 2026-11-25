@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { Screen } from '../components/Layout';
 import { useSimplePlayer, primeSimpleAudio, AUDIO_ACCEPT, isAudioFile, playlistBytes, limitBytes } from '../audio/simplePlayer';
 import { Link } from 'react-router-dom';
+import { Equalizer } from '../components/Equalizer';
 import { gdriveConfigured } from '../gdrive';
 import { DriveButton } from '../components/DriveButton';
 import { formatTime, formatBytes } from '../utils/time';
@@ -46,7 +47,7 @@ export default function Player() {
       {/* 지금 재생 중 */}
       <div className="card mb-4">
         <div className="mb-4 flex items-center gap-4">
-          <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-accent to-accent2 text-3xl ${p.playing ? 'animate-pulse' : ''}`}>
+          <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-accent to-accent2 text-3xl`}>
             🎧
           </div>
           <div className="min-w-0 flex-1">
@@ -54,6 +55,8 @@ export default function Player() {
             <div className="text-sm text-slate-400">{cur ? `${p.index + 1} / ${p.tracks.length}${!p.playing && p.time > 1 ? ` · ${formatTime(p.time, 0)}부터 이어 듣기` : ''}` : '여러 곡을 골라 이어서 들어요'}</div>
           </div>
         </div>
+
+        {cur && <Equalizer />}
 
         <input
           type="range"

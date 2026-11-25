@@ -121,6 +121,11 @@ function el(): HTMLAudioElement {
  * iOS: 파일 선택 창을 여는 '탭' 안에서 미리 호출해 두면,
  * 파일을 고른 뒤(제스처 밖에서) 바로 재생할 수 있다.
  */
+/** 이퀄라이저용: 지금 재생 위치 (초) — 상태 갱신보다 정밀 */
+export function getSimpleAudioTime(): number {
+  return audio && audio.src !== silentUrl ? audio.currentTime : 0;
+}
+
 export function primeSimpleAudio() {
   const a = el();
   if (useSimplePlayer.getState().playing) return;
