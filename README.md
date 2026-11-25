@@ -63,6 +63,12 @@ docs/              # 기획서, PoC 결과
 
 > COOP/COEP 헤더는 설정하지 않습니다 (Google Picker·OAuth 팝업과 충돌). 그래서 ffmpeg는 single-thread 코어를 씁니다.
 
+## 참고 문서
+
+- [docs/equalizer-guide.md](docs/equalizer-guide.md) — 이퀄라이저 제작 가이드 ("미리 분석" 방식, 디자인 A~F 코드, 다른 앱 재사용용)
+- [docs/google-drive-setup.md](docs/google-drive-setup.md) — 구글 드라이브 연결 설정
+- [docs/poc-result.md](docs/poc-result.md) — 기술 검증 결과
+
 ## 기획서 대비 변경점
 
 - 오디오 추출 1순위를 mp4box.js 대신 **자체 경량 MP4/MOV 파서**로 구현 — 영상 데이터를 메모리에 올리지 않기 위함 ([docs/poc-result.md](docs/poc-result.md))
