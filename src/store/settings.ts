@@ -9,7 +9,9 @@ function load(): AppSettings {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const v = JSON.parse(raw);
-      return { ...DEFAULT_SETTINGS, ...v, silence: { ...DEFAULT_SETTINGS.silence, ...(v.silence ?? {}) } };
+      const merged = { ...DEFAULT_SETTINGS, ...v, silence: { ...DEFAULT_SETTINGS.silence, ...(v.silence ?? {}) } };
+      if (!Array.isArray(merged.ocrLangs) || !merged.ocrLangs.length) merged.ocrLangs = DEFAULT_SETTINGS.ocrLangs;
+      return merged;
     }
   } catch {
     /* noop */

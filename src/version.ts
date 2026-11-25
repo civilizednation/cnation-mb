@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.2.0';
 
 export interface Revision {
   version: string;
@@ -9,6 +9,19 @@ export interface Revision {
 
 /** 개정 이력 (최신이 위) — 앱 하단 (rev. history) 링크에서 표시 */
 export const REVISIONS: Revision[] = [
+  {
+    version: '1.2.0',
+    date: '2026-11-25',
+    title: '중국어 제목 인식 & iPhone 재생 멈춤 수정',
+    changes: [
+      '중국어(간체·번체) 제목 인식 지원 — 한국어 우선/중국어 우선 두 가지로 읽고 더 확실한 결과를 선택',
+      '설정 → 제목 인식 언어 선택 (한국어·영어·중국어 간체·중국어 번체)',
+      '두 줄 제목 인식, 한자 사이 공백 정리, 밝은 배경 위 흰 글씨(테두리 글씨) 인식 개선',
+      'iPhone에서 비교 재생 시 소리가 나지 않고 시간이 멈춰 있던 문제 수정 (오디오 세션 설정 순서)',
+      '오디오가 멈추면 "탭해서 다시 재생" 버튼 표시 → 자동 복구, 화면 어디를 탭해도 오디오를 다시 깨움',
+      '설정 → 기술 검증(PoC)에 오디오 진단(테스트 톤) 추가',
+    ],
+  },
   {
     version: '1.1.0',
     date: '2026-11-25',

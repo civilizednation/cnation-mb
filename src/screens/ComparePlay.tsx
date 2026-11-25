@@ -147,7 +147,7 @@ export default function ComparePlay() {
 
         <div className="mb-4">
           <div className="relative h-2 overflow-hidden rounded-full bg-line">
-            <div className="h-full bg-gradient-to-r from-accent to-accent2" style={{ width: `${((pos - r.start) / Math.max(0.01, r.end - r.start)) * 100}%` }} />
+            <div className="h-full bg-gradient-to-r from-accent to-accent2" style={{ width: `${Math.max(0, Math.min(1, (pos - r.start) / Math.max(0.01, r.end - r.start))) * 100}%` }} />
           </div>
           <div className="mt-1 flex justify-between font-mono text-xs tabular-nums text-slate-400">
             <span>{formatTime(pos)}</span>

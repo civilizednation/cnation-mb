@@ -1,6 +1,6 @@
 import { Blobs } from '../db';
 import type { Song } from '../types';
-import { getAudioContext, unlockAudio } from './decode';
+import { getAudioContext, unlockAudio, resetAudioContext, peekAudioContext } from './decode';
 
 const FADE = 0.01; // 10ms
 const MAX_CACHE = 3;
@@ -81,7 +81,49 @@ class Player {
       const len = this.relEnd - this.relStart;
       rel = this.relStart + ((rel - this.relStart) % len);
     }
-    return Math.min(rel, this.relEnd);
+    return Math.max(this.relStart, Math.min(rel, this.relEnd));
+  }
+
+  /** 재생 중인데 오디오 시계가 흐르지 않으면 true (iOS가 컨텍스트를 멈춘 상태) */
+  private lastClock = -1;
+  private lastClockAt = 0;
+  isStalled(): boolean {
+    if (!this.playing) {
+      this.lastClock = -1;
+      return false;
+    }
+    const ctx = peekAudioContext();
+    if (!ctx) return false;
+    if (ctx.state !== 'running') return true;
+    const now = performance.now();
+    if (ctx.currentTime !== this.lastClock) {
+      this.lastClock = ctx.currentTime;
+      this.lastClockAt = now;
+      return false;
+    }
+    return now - this.lastClockAt > 800;
+  }
+
+  /** 멈춤 복구: (사용자 탭 안에서 호출) resume → 그래도 안 되면 컨텍스트를 새로 만들고 현재 위치부터 다시 재생 */
+  async recover(): Promise<boolean> {
+    const song = this.song;
+    const from = this.position();
+    const { relStart, relEnd, loop } = this;
+    const onEnded = this.onEnded;
+    await unlockAudio();
+    await new Promise((r) => setTimeout(r, 350));
+    const ctx = peekAudioContext();
+    const t0 = ctx?.currentTime ?? 0;
+    await new Promise((r) => setTimeout(r, 250));
+    if (ctx && ctx.state === 'running' && ctx.currentTime > t0) return true;
+    // 새 컨텍스트로 교체 — 디코딩된 버퍼는 컨텍스트와 무관하게 재사용 가능
+    this.token++;
+    this.src = null;
+    this.gain = null;
+    resetAudioContext();
+    await unlockAudio();
+    if (song) await this.play(song, relStart, relEnd, { from, loop, onEnded: onEnded ?? undefined });
+    return true;
   }
 
   /**

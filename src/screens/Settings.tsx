@@ -6,7 +6,7 @@ import { useSession } from '../store/session';
 import { storageUsage, clearAll } from '../db';
 import { formatBytes, formatDate } from '../utils/time';
 import { gdriveConfigured, isConnected, getToken, disconnect } from '../gdrive';
-import { DEFAULT_SILENCE, type SilenceParams } from '../types';
+import { DEFAULT_SILENCE, OCR_LANGS, type SilenceParams } from '../types';
 import { toast } from '../components/Toast';
 import { APP_VERSION } from '../version';
 
@@ -53,6 +53,30 @@ export default function Settings() {
       </Section>
 
       <Section title="제목 인식 (OCR)">
+        <div className="card mb-2">
+          <span className="label">인식 언어 (여러 개 선택 가능)</span>
+          <div className="grid grid-cols-2 gap-2">
+            {OCR_LANGS.map((l) => {
+              const on = settings.ocrLangs.includes(l.code);
+              return (
+                <button
+                  key={l.code}
+                  role="checkbox"
+                  aria-checked={on}
+                  className={`btn ${on ? 'bg-accent text-white' : 'bg-panel2 text-slate-300'}`}
+                  onClick={() => {
+                    const next = on ? settings.ocrLangs.filter((x) => x !== l.code) : [...settings.ocrLangs, l.code];
+                    if (next.length) update({ ocrLangs: OCR_LANGS.map((x) => x.code).filter((c) => next.includes(c)) });
+                  }}
+                >
+                  {on ? '✓ ' : ''}
+                  {l.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-xs text-slate-500">쓰지 않는 언어를 끄면 인식이 더 빠르고 정확해져요. 언어 데이터는 처음 사용할 때 한 번만 내려받아요 (언어당 약 1.6MB).</p>
+        </div>
         <div className="card flex items-center justify-between gap-3">
           <div className="text-sm">
             제목 영역(ROI): {roi ? <span className="text-emerald-300">지정됨</span> : <span className="text-slate-400">미지정</span>}

@@ -14,6 +14,8 @@ const files = [
   [nm('tesseract.js-core/tesseract-core-simd-lstm.wasm.js'), out('tesseract/core/tesseract-core-simd-lstm.wasm.js')],
   [nm('@tesseract.js-data/kor/4.0.0_best_int/kor.traineddata.gz'), out('tesseract/lang/kor.traineddata.gz')],
   [nm('@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz'), out('tesseract/lang/eng.traineddata.gz')],
+  [nm('@tesseract.js-data/chi_sim/4.0.0_best_int/chi_sim.traineddata.gz'), out('tesseract/lang/chi_sim.traineddata.gz')],
+  [nm('@tesseract.js-data/chi_tra/4.0.0_best_int/chi_tra.traineddata.gz'), out('tesseract/lang/chi_tra.traineddata.gz')],
   [nm('@ffmpeg/core/dist/esm/ffmpeg-core.js'), out('ffmpeg/ffmpeg-core.js')],
   [nm('@ffmpeg/core/dist/esm/ffmpeg-core.wasm'), out('ffmpeg/ffmpeg-core.wasm')],
 ];

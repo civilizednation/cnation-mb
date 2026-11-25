@@ -81,7 +81,17 @@ export interface AppSettings {
   mp3Kbps: 128 | 192 | 256 | 320;
   mp3FadeMs: number;
   exportNoticeShown: boolean;
+  /** 제목 인식(OCR) 언어 — Tesseract 언어 코드 */
+  ocrLangs: OcrLang[];
 }
+
+export type OcrLang = 'kor' | 'eng' | 'chi_sim' | 'chi_tra';
+export const OCR_LANGS: { code: OcrLang; label: string }[] = [
+  { code: 'kor', label: '한국어' },
+  { code: 'eng', label: '영어' },
+  { code: 'chi_sim', label: '중국어 간체' },
+  { code: 'chi_tra', label: '중국어 번체' },
+];
 
 export const DEFAULT_SILENCE: SilenceParams = {
   windowMs: 20,
@@ -101,4 +111,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   mp3Kbps: 256,
   mp3FadeMs: 10,
   exportNoticeShown: false,
+  ocrLangs: ['kor', 'eng', 'chi_sim', 'chi_tra'],
 };

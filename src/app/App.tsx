@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { HashRouter, Route, Routes } from 'react-router-dom';
 import Home from '../screens/Home';
 import { ToastHost } from '../components/Toast';
+import { AudioStallBanner } from '../components/AudioStallBanner';
 
 const Import = lazy(() => import('../screens/Import'));
 const Processing = lazy(() => import('../screens/Processing'));
@@ -36,6 +37,7 @@ export default function App() {
         </Routes>
       </Suspense>
       <ToastHost />
+      <AudioStallBanner />
     </HashRouter>
   );
 }
