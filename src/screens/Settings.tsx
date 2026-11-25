@@ -5,9 +5,8 @@ import { useSettings } from '../store/settings';
 import { useSession } from '../store/session';
 import { storageUsage, clearAll } from '../db';
 import { formatBytes, formatDate } from '../utils/time';
-import { gdriveConfigured, isConnected, getToken, disconnect } from '../gdrive';
+import { DriveSettings } from '../components/DriveSettings';
 import { DEFAULT_SILENCE, OCR_LANGS, type SilenceParams } from '../types';
-import { toast } from '../components/Toast';
 import { APP_VERSION } from '../version';
 import { useSimplePlayer } from '../audio/simplePlayer';
 
@@ -24,7 +23,6 @@ export default function Settings() {
   const { settings, update, roi, setRoi } = useSettings();
   const { recent, loadRecent, deleteSession } = useSession();
   const [usage, setUsage] = useState<{ usage: number; quota: number; perSession: Record<string, number> } | null>(null);
-  const [gConnected, setGConnected] = useState(isConnected());
   const [adv, setAdv] = useState(false);
   const pl = useSimplePlayer();
 
@@ -100,35 +98,7 @@ export default function Settings() {
       </Section>
 
       <Section title="구글 드라이브">
-        <div className="card flex items-center justify-between gap-3">
-          <span className="text-sm">{!gdriveConfigured ? '환경변수가 설정되지 않아 비활성화됨' : gConnected ? '연결됨' : '연결 안 됨'}</span>
-          {gdriveConfigured &&
-            (gConnected ? (
-              <button
-                className="btn-ghost"
-                onClick={async () => {
-                  await disconnect();
-                  setGConnected(false);
-                }}
-              >
-                연결 해제
-              </button>
-            ) : (
-              <button
-                className="btn-primary"
-                onClick={async () => {
-                  try {
-                    await getToken('consent');
-                    setGConnected(true);
-                  } catch (e) {
-                    toast(String((e as Error)?.message ?? e), 'error');
-                  }
-                }}
-              >
-                구글 계정 연결
-              </button>
-            ))}
-        </div>
+        <DriveSettings />
       </Section>
 
       <Section title="저장공간">

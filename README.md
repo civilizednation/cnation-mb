@@ -59,17 +59,7 @@ docs/              # 기획서, PoC 결과
 ## 배포 (Vercel)
 
 1. Vercel에서 이 GitHub 레포를 Import → Framework: **Vite** (vercel.json 포함, 설정 그대로)
-2. (선택) 구글 드라이브: 환경변수 설정 후 재배포
-
-```
-VITE_GOOGLE_CLIENT_ID=xxxxx.apps.googleusercontent.com
-VITE_GOOGLE_API_KEY=xxxxx
-VITE_GOOGLE_APP_ID=xxxxx   # Cloud 프로젝트 번호 (Picker용)
-```
-
-Google Cloud Console: Drive API·Picker API 활성화 → OAuth 동의 화면(테스트 사용자에 본인 계정) →
-OAuth 클라이언트(웹) → 승인된 JavaScript 원본에 `http://localhost:5173`, 배포 도메인 추가.
-환경변수가 없으면 드라이브 버튼만 비활성화되고 나머지 기능은 정상 동작합니다.
+2. (선택) 구글 드라이브: 관리자가 한 번 설정하면 모든 사용자가 각자 자기 구글 계정으로 로그인해 사용 → **[docs/google-drive-setup.md](docs/google-drive-setup.md)**
 
 > COOP/COEP 헤더는 설정하지 않습니다 (Google Picker·OAuth 팝업과 충돌). 그래서 ffmpeg는 single-thread 코어를 씁니다.
 

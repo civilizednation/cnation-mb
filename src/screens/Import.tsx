@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Screen, Section, Toggle, ProgressBar } from '../components/Layout';
+import { Screen, Section, Toggle } from '../components/Layout';
 import { useImport } from '../store/import';
 import type { ImportItem } from '../pipeline/types';
 import { isVideo } from '../pipeline/process';
-import { gdriveConfigured, pickFiles, downloadDriveFile } from '../gdrive';
+import { DRIVE_MEDIA_MIMES } from '../gdrive';
+import { DriveButton } from '../components/DriveButton';
 import { formatBytes } from '../utils/time';
 import { toast } from '../components/Toast';
 import { unlockAudio } from '../audio/decode';
@@ -20,7 +21,6 @@ export default function Import() {
   const [items, setItems] = useState<ImportItem[]>([]);
   const [multiSong, setMultiSong] = useState(true);
   const [songCount, setSongCount] = useState<number | null>(null);
-  const [dl, setDl] = useState<{ name: string; ratio: number } | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const setRequest = useImport((s) => s.setRequest);
 
@@ -31,21 +31,6 @@ export default function Import() {
     const ok = files.filter((f) => OK_EXT.test(f.name) || /^(audio|video)\//.test(f.type));
     if (ok.length < files.length) toast(`지원하지 않는 형식 ${files.length - ok.length}개는 제외했어요`, 'error');
     setItems((prev) => [...prev, ...ok.map((file) => ({ file, sourceKind }))]);
-  };
-
-  const fromDrive = async () => {
-    try {
-      const docs = await pickFiles();
-      for (const d of docs) {
-        setDl({ name: d.name, ratio: 0 });
-        const f = await downloadDriveFile(d, (l, t) => setDl({ name: d.name, ratio: t ? l / t : 0 }));
-        addFiles([f], 'gdrive');
-      }
-    } catch (e) {
-      toast(String((e as Error)?.message ?? e), 'error', 4000);
-    } finally {
-      setDl(null);
-    }
   };
 
   const start = async () => {
@@ -85,21 +70,15 @@ export default function Import() {
         <button className="btn-primary py-4" onClick={() => input.current?.click()}>
           📁 기기 파일
         </button>
-        <button className="btn-ghost py-4" disabled={!gdriveConfigured || !!dl} onClick={fromDrive}>
-          ☁️ 구글 드라이브
-        </button>
+        <DriveButton
+          mimes={DRIVE_MEDIA_MIMES}
+          onFile={(f) => addFiles([f], 'gdrive')}
+          onBeforeLogin={() => !items.length || confirm('구글 로그인 화면으로 이동하면 지금 고른 파일 목록이 비워져요. 계속할까요? (로그인은 처음 한 번만 필요해요)')}
+        />
       </div>
-      {!gdriveConfigured && <p className="mb-2 text-xs text-slate-500">구글 드라이브는 환경변수(VITE_GOOGLE_*) 설정 후 사용할 수 있어요.</p>}
       <p className="mb-4 rounded-xl bg-panel2 p-3 text-xs text-slate-300">
         💡 사진 앱보다 <b>파일 앱</b>에서 선택하면 더 빨라요 (사진 앱은 iOS가 변환 대기를 할 수 있음).
       </p>
-      {dl && (
-        <div className="card mb-4">
-          <div className="mb-2 truncate text-sm">드라이브 다운로드: {dl.name}</div>
-          <ProgressBar value={dl.ratio} />
-        </div>
-      )}
-
       {items.length > 0 && (
         <Section title={`선택한 파일 ${items.length}개`} right={<button className="text-sm text-slate-400" onClick={() => setItems([])}>모두 지우기</button>}>
           <ul className="space-y-2">
@@ -146,7 +125,7 @@ export default function Import() {
       )}
 
       <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-bg via-bg to-transparent px-4 pb-2 pt-4">
-        <button className="btn-primary w-full py-4 text-lg" disabled={!items.length || !!dl} onClick={start}>
+        <button className="btn-primary w-full py-4 text-lg" disabled={!items.length} onClick={start}>
           불러오기 시작 ({items.length})
         </button>
       </div>

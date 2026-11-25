@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0d12" />
+    <title>구글 연결 중…</title>
+    <style>
+      html,body{margin:0;height:100%;background:#0b0d12;color:#cbd5e1;font-family:-apple-system,'Apple SD Gothic Neo',sans-serif}
+      main{display:flex;height:100%;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:24px;text-align:center}
+      a{color:#22d3ee}
+    </style>
+  </head>
+  <body>
+    <main><div style="font-size:40px">☁️</div><div id="msg">구글 드라이브 연결 중…</div></main>
+    <script>
+      // 구글 로그인(리디렉션) 결과를 받아 토큰을 이 기기에 저장하고 앱으로 돌아간다.
+      (function () {
+        var AUTH_KEY = 'cnation-mb:gauth';
+        var p = new URLSearchParams(location.hash.slice(1) || location.search.slice(1));
+        var st = {};
+        try { st = JSON.parse(decodeURIComponent(escape(atob(p.get('state') || '')))) || {}; } catch (e) {}
+        var back = '/#' + (st.r && st.r.charAt(0) === '/' ? st.r : '/');
+        var token = p.get('access_token');
+        var err = p.get('error');
+        if (token) {
+          var exp = Date.now() + (Number(p.get('expires_in')) || 3600) * 1000;
+          localStorage.setItem(AUTH_KEY, JSON.stringify({ token: token, exp: exp }));
+          location.replace(back);
+          return;
+        }
+        // 기억된 계정으로 '화면 없이' 시도했는데 다시 동의/로그인이 필요하면 → 로그인 화면으로
+        if (st.s && /interaction_required|login_required|consent_required|account_selection_required/.test(err || '') && st.c) {
+          var q = new URLSearchParams({
+            client_id: st.c, redirect_uri: location.origin + '/oauth.html', response_type: 'token',
+            scope: st.sc, include_granted_scopes: 'true', prompt: 'consent',
+            state: btoa(unescape(encodeURIComponent(JSON.stringify({ r: st.r, s: 0, c: st.c, h: st.h, sc: st.sc }))))
+          });
+          if (st.h) q.set('login_hint', st.h);
+          location.replace('https://accounts.google.com/o/oauth2/v2/auth?' + q);
+          return;
+        }
+        localStorage.setItem(AUTH_KEY, JSON.stringify({ token: '', exp: 0, error: err || 'unknown_error' }));
+        document.getElementById('msg').innerHTML = '구글 연결이 완료되지 않았어요.<br><a href="' + back + '">앱으로 돌아가기</a>';
+        setTimeout(function () { location.replace(back); }, 1200);
+      })();
+    </script>
+  </body>
+</html>
