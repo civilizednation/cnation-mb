@@ -32,7 +32,7 @@ export default defineConfig({
         globIgnores: ['vendor/**'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/oauth\.html/, /^\/vendor\//],
+        navigateFallbackDenylist: [/^\/oauth\.html/, /^\/privacy\.html/, /^\/vendor\//],
         runtimeCaching: [
           {
             // 자체 호스팅: Tesseract 워커/코어/언어 데이터, ffmpeg 코어 (최초 사용 시 다운로드 후 캐시)

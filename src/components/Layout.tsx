@@ -52,6 +52,10 @@ export function VersionFooter() {
       <Link to="/history" className="text-slate-400 underline underline-offset-2 hover:text-accent2">
         (rev. history)
       </Link>
+      <span className="mx-1">·</span>
+      <a href="/privacy.html" className="text-slate-400 underline underline-offset-2 hover:text-accent2">
+        개인정보처리방침
+      </a>
     </footer>
   );
 }
