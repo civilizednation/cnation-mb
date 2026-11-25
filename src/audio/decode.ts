@@ -1,38 +1,75 @@
 let sharedCtx: AudioContext | null = null;
+const ctxListeners = new Set<() => void>();
 
-export function getAudioContext(): AudioContext {
-  if (!sharedCtx) {
-    const AC: typeof AudioContext = (window as any).AudioContext || (window as any).webkitAudioContext;
-    sharedCtx = new AC({ latencyHint: 'playback' } as AudioContextOptions);
-  }
-  return sharedCtx;
-}
-
-/** iOS: 사용자 제스처 안에서 호출 */
-export async function unlockAudio() {
-  const ctx = getAudioContext();
+/**
+ * iOS: 무음 스위치가 켜져 있어도 소리가 나도록 'playback' 세션으로.
+ * 반드시 AudioContext를 만들기 전에(앱 시작 시) 한 번만 설정한다.
+ * — 컨텍스트가 돌고 있을 때 바꾸면 iOS가 컨텍스트를 'interrupted'로 멈출 수 있다.
+ */
+export function initAudioSession() {
   try {
     const nav = navigator as any;
     if (nav.audioSession && nav.audioSession.type !== 'playback') nav.audioSession.type = 'playback';
   } catch {
     /* noop */
   }
-  if (ctx.state !== 'running') {
-    try {
-      await ctx.resume();
-    } catch {
-      /* noop */
-    }
+}
+
+export function onAudioContextChange(l: () => void) {
+  ctxListeners.add(l);
+  return () => ctxListeners.delete(l);
+}
+
+export function peekAudioContext(): AudioContext | null {
+  return sharedCtx;
+}
+
+export function getAudioContext(): AudioContext {
+  if (!sharedCtx || sharedCtx.state === 'closed') {
+    const AC: typeof AudioContext = (window as any).AudioContext || (window as any).webkitAudioContext;
+    sharedCtx = new AC();
+    sharedCtx.onstatechange = () => ctxListeners.forEach((l) => l());
+    ctxListeners.forEach((l) => l());
   }
-  // 무음 버퍼 한 번 재생 (iOS 잠금 해제)
+  return sharedCtx;
+}
+
+/** 멈춘 컨텍스트를 버리고 새로 만든다 (iOS에서 resume이 안 될 때의 최후 수단) */
+export function resetAudioContext(): AudioContext {
+  const old = sharedCtx;
+  sharedCtx = null;
   try {
-    const b = ctx.createBuffer(1, 1, ctx.sampleRate);
-    const s = ctx.createBufferSource();
-    s.buffer = b;
-    s.connect(ctx.destination);
-    s.start();
+    old?.close();
   } catch {
     /* noop */
+  }
+  return getAudioContext();
+}
+
+/** 동기 호출용: 사용자 제스처 안에서 바로 resume (await 하지 않음) */
+export function kickAudio() {
+  const ctx = sharedCtx;
+  if (ctx && ctx.state !== 'running' && ctx.state !== 'closed') {
+    ctx.resume().catch(() => {});
+  }
+}
+
+/** iOS: 사용자 제스처 안에서 호출 */
+export async function unlockAudio() {
+  const ctx = getAudioContext();
+  // 무음 버퍼 한 번 재생 (iOS 잠금 해제) — resume보다 먼저, 제스처 안에서 동기적으로
+  try {
+    const b = ctx.createBuffer(1, 1, ctx.sampleRate);
+    const src = ctx.createBufferSource();
+    src.buffer = b;
+    src.connect(ctx.destination);
+    src.start();
+  } catch {
+    /* noop */
+  }
+  if (ctx.state !== 'running') {
+    // interrupted 상태에서는 resume이 오래 걸리거나 끝나지 않을 수 있어 기다리지 않는다
+    await Promise.race([ctx.resume().catch(() => {}), new Promise((r) => setTimeout(r, 400))]);
   }
 }
 
@@ -144,3 +181,6 @@ export function downsample(x: Float32Array, from: number, to: number): Float32Ar
   }
   return out;
 }
+
+// 개발 모드 전용: E2E 테스트에서 오디오 멈춤을 재현하기 위한 훅
+if (import.meta.env.DEV && typeof window !== 'undefined') (window as any).__cnAudio = { peekAudioContext };

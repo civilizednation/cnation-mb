@@ -4,8 +4,12 @@ export function normalizeTitle(t: string): string {
 }
 
 /** OCR 결과 후처리: 앞뒤 공백·특수문자 정리 */
+const CJK = '\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}';
+const CJK_GAP = new RegExp(`([${CJK}])\\s+(?=[${CJK}])`, 'gu');
+
 export function cleanOcrTitle(raw: string): string {
   return raw
+    .replace(CJK_GAP, '$1')
     .replace(/[\r\n]+/g, ' ')
     .replace(/[|_~`^<>{}\[\]\\]+/g, ' ')
     .replace(/\s+/g, ' ')

@@ -5,7 +5,7 @@ import { decodeForAnalysis } from '../pipeline/process';
 import { analyzeSplit } from '../pipeline/analysisClient';
 import { useSettings } from '../store/settings';
 import { FrameGrabber, thumbnailOf } from '../ocr/frameCapture';
-import { supportsAudioSession, unlockAudio } from '../audio/decode';
+import { supportsAudioSession, unlockAudio, getAudioContext, resetAudioContext } from '../audio/decode';
 import { formatTime, formatBytes } from '../utils/time';
 
 interface Row {
@@ -70,6 +70,28 @@ export default function Poc() {
   };
 
   const total = rows.reduce((a, r) => a + (r.ms ?? 0), 0);
+  const [audioDiag, setAudioDiag] = useState('');
+
+  /** 오디오 진단: 1초 테스트 톤을 재생하고 시계가 흐르는지 확인 */
+  const testAudio = async (reset = false) => {
+    if (reset) resetAudioContext();
+    await unlockAudio();
+    const ctx = getAudioContext();
+    const t0 = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    g.gain.value = 0.15;
+    osc.frequency.value = 660;
+    osc.connect(g).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.8);
+    await new Promise((r) => setTimeout(r, 1000));
+    const nav = navigator as any;
+    setAudioDiag(
+      `state=${ctx.state} · sampleRate=${ctx.sampleRate} · 1초 동안 시계 진행 ${(ctx.currentTime - t0).toFixed(2)}s · audioSession=${nav.audioSession ? nav.audioSession.type : '미지원'}` +
+        (ctx.currentTime - t0 < 0.5 ? ' → ⚠️ 오디오가 멈춰 있음' : ' → ✓ 정상 (삐 소리가 들려야 함)'),
+    );
+  };
 
   return (
     <Screen title="기술 검증 (PoC)" back>
@@ -116,6 +138,18 @@ export default function Poc() {
         </div>
       )}
       {thumb && <img src={thumb} alt="캡처" className="mx-auto max-h-80 rounded-xl" />}
+      <div className="card mt-4">
+        <h3 className="mb-2 font-semibold">🔊 오디오 진단</h3>
+        <div className="grid grid-cols-2 gap-2">
+          <button className="btn-ghost" onClick={() => testAudio(false)}>
+            테스트 톤 재생
+          </button>
+          <button className="btn-ghost" onClick={() => testAudio(true)}>
+            오디오 재연결 후 테스트
+          </button>
+        </div>
+        {audioDiag && <p className="mt-2 break-all text-xs text-slate-300">{audioDiag}</p>}
+      </div>
     </Screen>
   );
 }
