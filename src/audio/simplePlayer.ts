@@ -3,6 +3,7 @@ import { titleFromFileName } from '../ocr/titles';
 import { uid } from '../utils/id';
 import { encodeWav } from './decode';
 import { claimAudio, onOtherAudio } from './exclusive';
+import { Blobs, SettingsStore, requestPersist } from '../db';
 
 /**
  * 단순 연속 재생 플레이어 (HTML <audio>).
@@ -15,8 +16,37 @@ export interface Track {
   title: string;
   url: string;
   size: number;
+  /** IndexedDB blobs 저장소 키 (목록 저장용) */
+  blobKey: string;
   error?: boolean;
 }
+
+/** 저장 형식 */
+interface SavedPlaylist {
+  tracks: { id: string; name: string; title: string; size: number; blobKey: string }[];
+  index: number;
+  time: number;
+}
+const PL_KEY = 'playlist';
+
+let saveTimer: ReturnType<typeof setTimeout> | undefined;
+/** 목록·현재 곡·재생 위치를 저장 (잦은 호출은 묶어서) */
+function savePlaylist(delay = 400) {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    const { tracks, index, time } = useSimplePlayer.getState();
+    const data: SavedPlaylist = {
+      tracks: tracks.map(({ id, name, title, size, blobKey }) => ({ id, name, title, size, blobKey })),
+      index,
+      time,
+    };
+    SettingsStore.put(PL_KEY, data).catch(() => {});
+  }, delay);
+}
+
+/** 재생 위치에서 이어 듣기 위한 대기 중인 탐색 */
+let pendingSeek: number | null = null;
+let restored = false;
 
 interface S {
   tracks: Track[];
@@ -25,6 +55,7 @@ interface S {
   repeatAll: boolean;
   time: number;
   duration: number;
+  saveError: string | null;
   addFiles: (files: File[], autoplay?: boolean) => void;
   playAt: (i: number) => void;
   toggle: () => void;
@@ -44,10 +75,27 @@ function el(): HTMLAudioElement {
     audio = new Audio();
     audio.preload = 'auto';
     audio.setAttribute('playsinline', '');
-    audio.addEventListener('timeupdate', () => useSimplePlayer.setState({ time: audio!.currentTime }));
+    let lastSaved = 0;
+    audio.addEventListener('timeupdate', () => {
+      useSimplePlayer.setState({ time: audio!.currentTime });
+      if (Math.abs(audio!.currentTime - lastSaved) > 5) {
+        lastSaved = audio!.currentTime;
+        savePlaylist(0);
+      }
+    });
+    audio.addEventListener('loadedmetadata', () => {
+      if (pendingSeek != null && audio!.src !== silentUrl) {
+        audio!.currentTime = Math.min(pendingSeek, audio!.duration || pendingSeek);
+        useSimplePlayer.setState({ time: audio!.currentTime });
+        pendingSeek = null;
+      }
+    });
     audio.addEventListener('durationchange', () => useSimplePlayer.setState({ duration: Number.isFinite(audio!.duration) ? audio!.duration : 0 }));
     audio.addEventListener('play', () => useSimplePlayer.setState({ playing: true }));
-    audio.addEventListener('pause', () => useSimplePlayer.setState({ playing: false }));
+    audio.addEventListener('pause', () => {
+      useSimplePlayer.setState({ playing: false });
+      savePlaylist(0);
+    });
     audio.addEventListener('ended', () => useSimplePlayer.getState().next(true));
     audio.addEventListener('error', () => {
       const s = useSimplePlayer.getState();
@@ -114,14 +162,35 @@ export const useSimplePlayer = create<S>((set, get) => ({
   })(),
   time: 0,
   duration: 0,
+  saveError: null,
 
   addFiles: (files, autoplay = true) => {
-    const add: Track[] = files.map((f) => ({ id: uid('t_'), name: f.name, title: titleFromFileName(f.name), url: URL.createObjectURL(f), size: f.size }));
+    const add: Track[] = files.map((f) => ({
+      id: uid('t_'),
+      name: f.name,
+      title: titleFromFileName(f.name),
+      url: URL.createObjectURL(f),
+      size: f.size,
+      blobKey: uid('pl_'),
+    }));
     if (!add.length) return;
     const wasEmpty = get().index < 0 || !get().playing;
     const start = get().tracks.length;
     set({ tracks: [...get().tracks, ...add] });
     if (autoplay && wasEmpty) get().playAt(start);
+    // 파일을 기기 저장소(IndexedDB)에 보관 → 앱을 다시 열어도 목록 유지
+    (async () => {
+      await requestPersist();
+      for (let i = 0; i < add.length; i++) {
+        try {
+          await Blobs.put(add[i].blobKey, files[i]);
+        } catch (e) {
+          useSimplePlayer.setState({ saveError: String((e as Error)?.message ?? e) });
+          // 저장 못 한 곡은 이번 실행 동안만 재생 가능
+        }
+      }
+      savePlaylist(0);
+    })();
   },
 
   playAt: (i) => {
@@ -129,7 +198,9 @@ export const useSimplePlayer = create<S>((set, get) => ({
     if (!t) return;
     const a = el();
     claimAudio('simple');
+    pendingSeek = null;
     set({ index: i, time: 0, duration: 0 });
+    savePlaylist();
     a.src = t.url;
     a.currentTime = 0;
     a.play().catch(() => set({ playing: false }));
@@ -145,8 +216,16 @@ export const useSimplePlayer = create<S>((set, get) => ({
     }
     if (a.paused) {
       claimAudio('simple');
-      if (!a.src || a.src === silentUrl) get().playAt(index);
-      else a.play().catch(() => {});
+      if (!a.src || a.src === silentUrl) {
+        // 복원된 목록: 저장된 위치부터 이어서
+        const t = tracks[index];
+        const resumeAt = get().time;
+        if (!t) return;
+        a.src = t.url;
+        pendingSeek = resumeAt > 1 ? resumeAt : null;
+        a.play().catch(() => set({ playing: false }));
+        updateMediaSession(t);
+      } else a.play().catch(() => {});
     } else a.pause();
   },
 
@@ -185,12 +264,14 @@ export const useSimplePlayer = create<S>((set, get) => ({
     const i = tracks.findIndex((t) => t.id === id);
     if (i < 0) return;
     URL.revokeObjectURL(tracks[i].url);
+    Blobs.delete(tracks[i].blobKey).catch(() => {});
     const rest = tracks.filter((t) => t.id !== id);
     if (i === index) {
       el().pause();
       set({ tracks: rest, index: -1, time: 0, duration: 0 });
       if (rest.length) get().playAt(Math.min(i, rest.length - 1));
     } else set({ tracks: rest, index: i < index ? index - 1 : index });
+    savePlaylist();
   },
 
   clear: () => {
@@ -198,8 +279,13 @@ export const useSimplePlayer = create<S>((set, get) => ({
     a.pause();
     a.removeAttribute('src');
     a.load();
-    for (const t of get().tracks) URL.revokeObjectURL(t.url);
+    for (const t of get().tracks) {
+      URL.revokeObjectURL(t.url);
+      Blobs.delete(t.blobKey).catch(() => {});
+    }
+    pendingSeek = null;
     set({ tracks: [], index: -1, playing: false, time: 0, duration: 0 });
+    savePlaylist(0);
   },
 
   setRepeat: (v) => {
@@ -211,6 +297,39 @@ export const useSimplePlayer = create<S>((set, get) => ({
     set({ repeatAll: v });
   },
 }));
+
+/** 앱 시작 시: 저장된 연속 듣기 목록 복원 (자동 재생은 하지 않음 — 이어 듣기 위치 기억) */
+export async function restorePlaylist() {
+  if (restored) return;
+  restored = true;
+  try {
+    const saved = await SettingsStore.get<SavedPlaylist>(PL_KEY);
+    if (!saved?.tracks?.length || useSimplePlayer.getState().tracks.length) return;
+    const tracks: Track[] = [];
+    for (const t of saved.tracks) {
+      const blob = await Blobs.get(t.blobKey);
+      if (!blob) continue; // 저장소에서 지워진 곡은 건너뜀
+      tracks.push({ ...t, url: URL.createObjectURL(blob) });
+    }
+    if (!tracks.length) return;
+    const index = Math.max(0, Math.min(tracks.length - 1, tracks.findIndex((t) => t.id === saved.tracks[saved.index]?.id)));
+    useSimplePlayer.setState({ tracks, index, time: saved.index >= 0 ? saved.time || 0 : 0, duration: 0 });
+    // 메타데이터만 미리 읽어 길이·이어 듣기 위치를 바로 표시 (자동 재생 없음)
+    const time = saved.index >= 0 ? saved.time || 0 : 0;
+    const au = el();
+    pendingSeek = time > 1 ? time : null;
+    au.preload = 'metadata';
+    au.src = tracks[index].url;
+    updateMediaSession(tracks[index]);
+  } catch {
+    /* noop */
+  }
+}
+
+/** 저장된 연속 듣기 목록 용량 */
+export function playlistBytes(): number {
+  return useSimplePlayer.getState().tracks.reduce((a, t) => a + t.size, 0);
+}
 
 /** 재생 가능한 오디오 파일만 (영상 제외) */
 export const AUDIO_ACCEPT = 'audio/*,.mp3,.wav,.m4a,.aac,.ogg,.oga,.flac,.webm,.opus';

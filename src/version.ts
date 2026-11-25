@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.4.0';
 
 export interface Revision {
   version: string;
@@ -9,6 +9,17 @@ export interface Revision {
 
 /** 개정 이력 (최신이 위) — 앱 하단 (rev. history) 링크에서 표시 */
 export const REVISIONS: Revision[] = [
+  {
+    version: '1.4.0',
+    date: '2026-11-25',
+    title: '연속 듣기 목록 저장',
+    changes: [
+      '연속 듣기 목록을 기기에 자동 저장 — 앱을 닫았다 다시 열어도 목록이 그대로 남음',
+      '마지막으로 듣던 곡과 위치를 기억해 ▶를 누르면 그 위치부터 이어 듣기',
+      '설정 → 저장공간에 연속 듣기 목록(곡 수·용량)과 비우기 버튼 추가',
+      '"비교 세션 전체 삭제"는 연속 듣기 목록을 지우지 않도록 변경',
+    ],
+  },
   {
     version: '1.3.0',
     date: '2026-11-25',
