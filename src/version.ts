@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.8.1';
+export const APP_VERSION = '1.9.0';
 
 export interface Revision {
   version: string;
@@ -9,6 +9,16 @@ export interface Revision {
 
 /** 개정 이력 (최신이 위) — 앱 하단 (rev. history) 링크에서 표시 */
 export const REVISIONS: Revision[] = [
+  {
+    version: '1.9.0',
+    date: '2026-11-26',
+    title: '비교 없이 MP3 저장 & 64kbps',
+    changes: [
+      '비교 설정 화면의 "비교" 버튼 아래에 "비교 없이 MP3로 저장" 추가 — 곡 분리 후 체크한 곡을 바로 MP3로 저장 (특정 구간 모드면 그 구간만 저장도 가능)',
+      'MP3 음질에 64kbps(저음질) 추가 — 1분 약 0.5MB, 24kHz로 저장',
+      '64kbps도 첫 소리에서 정확히 시작하도록 갭리스 태그를 MPEG-2 형식까지 지원',
+    ],
+  },
   {
     version: '1.8.1',
     date: '2026-11-26',

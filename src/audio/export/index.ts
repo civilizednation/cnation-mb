@@ -4,7 +4,7 @@ import { decodeNative } from '../decode';
 import { safeFileName, uniqueFileNames } from '../../ocr/titles';
 
 export interface ExportOptions {
-  kbps: 128 | 192 | 256 | 320;
+  kbps: 64 | 128 | 192 | 256 | 320;
   fadeMs: number;
   artist: string;
   /** 지정 시 곡 0:00 기준 상대 구간만 저장 */

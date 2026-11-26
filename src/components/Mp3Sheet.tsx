@@ -7,7 +7,7 @@ import { toast } from './Toast';
 import { formatTime } from '../utils/time';
 import { averageRating } from '../store/session';
 
-const KBPS = [128, 192, 256, 320] as const;
+const KBPS = [64, 128, 192, 256, 320] as const;
 const FADES = [0, 10, 1000, 3000];
 
 export function Mp3Sheet({ songs, rounds, segmentRound, onClose }: { songs: Song[]; rounds: Round[]; segmentRound?: Round; onClose: () => void }) {
@@ -75,15 +75,22 @@ export function Mp3Sheet({ songs, rounds, segmentRound, onClose }: { songs: Song
           </button>
         </div>
 
-        <span className="label">음질 (CBR, 원본 샘플레이트 유지, 스테레오)</span>
-        <div className="mb-1 grid grid-cols-4 gap-1">
+        <span className="label">음질 (CBR · 스테레오 · 128 이상은 원본 샘플레이트, 64는 24kHz)</span>
+        <div className="mb-1 grid grid-cols-5 gap-1">
           {KBPS.map((k) => (
-            <button key={k} className={`btn ${settings.mp3Kbps === k ? 'bg-accent text-white' : 'bg-panel2'}`} onClick={() => update({ mp3Kbps: k })}>
-              {k}
+            <button
+              key={k}
+              className={`btn min-w-0 flex-col gap-0 px-1 ${settings.mp3Kbps === k ? 'bg-accent text-white' : 'bg-panel2'}`}
+              onClick={() => update({ mp3Kbps: k })}
+            >
+              <span>{k}</span>
+              {k === 64 && <span className="text-[10px] font-normal opacity-75">저음질</span>}
             </button>
           ))}
         </div>
-        <p className="mb-3 text-xs text-slate-400">녹화 원본 오디오(AAC) 이상의 음질은 만들 수 없어요. 256kbps면 충분합니다.</p>
+        <p className="mb-3 text-xs text-slate-400">
+          녹화 원본 오디오(AAC) 이상의 음질은 만들 수 없어요. 256kbps면 충분합니다. 64kbps는 용량이 가장 작지만(1분 ≈ 0.5MB) 음질이 눈에 띄게 떨어져요.
+        </p>
 
         <span className="label">시작/끝 페이드</span>
         <div className="mb-4 grid grid-cols-4 gap-1">
