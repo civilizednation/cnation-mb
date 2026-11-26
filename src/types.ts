@@ -78,7 +78,7 @@ export interface AppSettings {
   autoNext: boolean;
   blindDefault: boolean;
   artist: string;
-  mp3Kbps: 128 | 192 | 256 | 320;
+  mp3Kbps: 64 | 128 | 192 | 256 | 320;
   mp3FadeMs: number;
   exportNoticeShown: boolean;
   /** 제목 인식(OCR) 언어 — Tesseract 언어 코드 */

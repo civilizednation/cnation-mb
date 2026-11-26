@@ -9,7 +9,8 @@ import { useSessionById } from '../hooks';
 import { player, songLength } from '../audio/player';
 import { formatDuration } from '../utils/time';
 import { unlockAudio, supportsAudioSession } from '../audio/decode';
-import type { RoundMode } from '../types';
+import type { Round, RoundMode } from '../types';
+import { Mp3Sheet } from '../components/Mp3Sheet';
 
 function shuffle<T>(a: T[]): T[] {
   const r = [...a];
@@ -32,6 +33,7 @@ export default function CompareSetup() {
   const [refId, setRefId] = useState<string | null>(null);
   const [seg, setSeg] = useState<Segment>({ relStart: 30, relEnd: 60 });
   const [blind, setBlind] = useState(settings.blindDefault);
+  const [mp3Open, setMp3Open] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
 
   const list = useMemo(() => (session ? session.songIds.map((x) => songs[x]).filter(Boolean) : []), [session, songs]);
@@ -245,7 +247,30 @@ export default function CompareSetup() {
         <button className="btn-primary w-full py-4 text-lg" disabled={chosen.length < 1 || (mode === 'segment' && seg.relEnd <= seg.relStart)} onClick={start}>
           비교 ({chosen.length}곡)
         </button>
+        <button
+          className="btn-ghost mt-2 w-full py-3"
+          disabled={chosen.length < 1}
+          onClick={() => {
+            player.stop();
+            setMp3Open(true);
+          }}
+        >
+          💾 비교 없이 MP3로 저장 ({chosen.length}곡)
+        </button>
       </div>
+      {mp3Open && (
+        <Mp3Sheet
+          songs={chosen}
+          rounds={session.rounds}
+          // 특정 구간 모드에서 지정한 구간을 "현재 비교 구간" 저장에 사용
+          segmentRound={
+            mode === 'segment' && seg.relEnd > seg.relStart
+              ? ({ id: 'setup', mode: 'segment', relStartSec: seg.relStart, relEndSec: seg.relEnd, songOrder: [], blind: false, ratings: {}, startedAt: 0 } as Round)
+              : undefined
+          }
+          onClose={() => setMp3Open(false)}
+        />
+      )}
     </Screen>
   );
 }

@@ -54,7 +54,7 @@ self.onmessage = (e: MessageEvent<Req>) => {
       o += p.length;
     }
     // 갭리스 태그: 디코더가 인코더 지연/패딩을 건너뛰어 첫 소리에서 정확히 시작
-    const tagged = addGaplessTag(out, n);
+    const tagged = addGaplessTag(out, n, sampleRate);
     (self as any).postMessage({ type: 'done', data: tagged }, [tagged.buffer]);
   } catch (err) {
     (self as any).postMessage({ type: 'error', error: String((err as Error)?.message ?? err) });
