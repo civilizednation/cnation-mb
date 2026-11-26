@@ -109,7 +109,7 @@ export default function Import() {
             <Toggle checked={multiSong} onChange={setMultiSong} label="여러 곡이 연속 녹화된 영상" hint="끄면 영상 1개 = 곡 1개로 처리" />
             {multiSong && (
               <div className="mt-3">
-                <span className="label">곡 수 (입력하면 정확도가 올라가요)</span>
+                <span className="label">곡 수 (입력하면 더 정확해요 · 마지막 곡 뒤 다음 곡 시작 부분도 자동 제외)</span>
                 <div className="flex flex-wrap gap-2">
                   {[null, 2, 3, 4, 5, 6, 7, 8].map((n) => (
                     <button key={String(n)} className={`btn h-11 min-w-[52px] px-3 ${songCount === n ? 'bg-accent text-white' : 'bg-panel2'}`} onClick={() => setSongCount(n)}>

@@ -109,7 +109,7 @@ export interface EdgeTrim {
 
 /**
  * 녹화 가장자리에 걸린 다른 곡 조각을 찾아 무음으로 바꾼다 (mask 수정).
- * - 끝: 소리가 녹화 끝까지 이어지는데(끝에 무음 없음) 그 조각이 짧고(≤15s) 앞에 0.5s 이상 무음이 있으면
+ * - 끝: 소리가 녹화 끝까지 이어지는데(끝에 무음 없음) 그 조각이 최소 곡 길이(기본 30s)보다 짧고 앞에 0.5s 이상 무음이 있으면
  *   → Suno 자동 재생 등으로 녹화된 "다음 곡 도입부"로 보고 제외
  * - 처음: 녹화 시작부터 소리가 나는 짧은 조각 뒤에 0.5s 이상 무음 → "이전 곡 꼬리"로 보고 제외
  * 녹화 끝/처음에 딱 붙어 있는 조각만 대상이라, 곡 안의 극적인 쉼(쉼 → 마지막 화음 → 무음)은 건드리지 않는다.
@@ -118,7 +118,8 @@ export function trimEdgeFragments(env: Float32Array, mask: Uint8Array, p: Silenc
   const n = mask.length;
   const winSec = p.windowMs / 1000;
   const gapMin = Math.max(1, Math.round(0.5 / winSec));
-  const fragMax = Math.round(15 / winSec);
+  // 최소 곡 길이보다 짧은 조각은 한 곡일 수 없음 → 다른 곡 조각으로 판단 (기본 30초)
+  const fragMax = Math.round(Math.max(5, p.minSongSec) / winSec);
   const res: EdgeTrim = { headCut: 0, tailCut: n, headSec: 0, tailSec: 0 };
   if (n < 4) return res;
 
@@ -281,10 +282,27 @@ export function splitSongs(
   if (edge.tailSec > 0) warnings.push(`녹화 끝에 다른 곡의 시작 부분(약 ${edge.tailSec.toFixed(1)}초)이 있어 제외했어요.`);
   if (edge.headSec > 0) warnings.push(`녹화 처음에 이전 곡의 끝부분(약 ${edge.headSec.toFixed(1)}초)이 있어 제외했어요.`);
 
-  const silences = runsOf(mask, 1);
-  // 맨 앞/맨 뒤 무음(녹화 여유)은 후보 제외
-  const internal = silences.filter((r) => r.start > 0 && r.end < n);
   const lenSec = (r: Run) => (r.end - r.start) * winSec;
+  let silences = runsOf(mask, 1);
+  // 맨 앞/맨 뒤 무음(녹화 여유)은 후보 제외
+  let internal = silences.filter((r) => r.start > 0 && r.end < n);
+
+  // 곡 수(N)를 알고 있고 녹화가 소리 나는 중에 끝났다면 → 실제 사용 패턴:
+  // "마지막 곡이 끝나고 다음 곡이 시작되자마자 멈추고 녹화 종료" → N+1번째 조각은 길이와 무관하게 제외
+  if (songCount && songCount >= 2 && mask[n - 1] === 0 && internal.length >= songCount) {
+    const byLen = [...internal].sort((x, y) => lenSec(y) - lenSec(x));
+    const top = byLen.slice(0, songCount).sort((a, b) => a.start - b.start);
+    const last = top[top.length - 1];
+    if (lenSec(last) >= 0.5) {
+      const extraSec = (n - last.end) * winSec;
+      for (let k = last.end; k < n; k++) mask[k] = 1;
+      edge.tailCut = quietMidpoint(env, last.start, last.end);
+      edge.tailSec = extraSec;
+      warnings.push(`${songCount}곡 뒤에 이어진 다음 곡의 시작 부분(약 ${extraSec.toFixed(1)}초)을 제외했어요.`);
+      silences = runsOf(mask, 1);
+      internal = silences.filter((r) => r.start > 0 && r.end < n);
+    }
+  }
 
   let chosen: Run[] = [];
   let lowConfidence = new Set<Run>();

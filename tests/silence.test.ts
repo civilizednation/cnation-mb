@@ -121,6 +121,23 @@ describe('edge fragments & end cap', () => {
     expect(auto.songs[1].srcEndSec).toBeLessThan(fragStart);
   });
 
+  it('with song count: drops the (N+1)th song even when the user stopped late (45s)', () => {
+    const { x, marks } = build([{ t: 'sil', s: 3 }, ...song(40), { t: 'sil', s: 2 }, ...song(35), { t: 'sil', s: 1.5 }, { t: 'tone', s: 45 }]);
+    const fragStart = marks[marks.length - 1];
+    const r = splitSongs(x, SR, DEFAULT_SILENCE, 2);
+    expect(r.songs).toHaveLength(2);
+    expect(Math.abs(r.songs[1].srcStartSec - marks[4])).toBeLessThan(0.02);
+    expect(r.songs[1].srcEndSec).toBeLessThan(fragStart);
+    expect(r.warnings.join()).toContain('2곡 뒤에 이어진 다음 곡');
+  });
+
+  it('auto mode: drops a trailing fragment shorter than the minimum song length (20s)', () => {
+    const { x, marks } = build([{ t: 'sil', s: 3 }, ...song(40), { t: 'sil', s: 2.5 }, ...song(35), { t: 'sil', s: 1.2 }, { t: 'tone', s: 20 }]);
+    const r = splitSongs(x, SR, DEFAULT_SILENCE, null);
+    expect(r.songs).toHaveLength(2);
+    expect(r.songs[1].srcEndSec).toBeLessThan(marks[marks.length - 1]);
+  });
+
   it('drops the previous song tail captured at the very start', () => {
     const { x, marks } = build([{ t: 'tone', s: 3 }, { t: 'sil', s: 1.5 }, ...song(40), { t: 'sil', s: 3 }, ...song(35), { t: 'sil', s: 3 }]);
     const r = splitSongs(x, SR, DEFAULT_SILENCE, 2);
