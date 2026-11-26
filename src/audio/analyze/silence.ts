@@ -80,6 +80,119 @@ export function runsOf(mask: Uint8Array, value: number): Run[] {
   return runs;
 }
 
+/**
+ * 구간 [a, b)에서 가장 조용한 부분(최솟값 +3dB 이내)의 가운데 창.
+ * 두 곡 사이 경계에서 앞 곡 꼬리와 다음 곡 도입부를 가르는 기준점으로 쓴다.
+ */
+export function quietMidpoint(env: Float32Array, a: number, b: number): number {
+  if (b <= a) return a;
+  let mn = Infinity;
+  for (let w = a; w < b; w++) if (env[w] < mn) mn = env[w];
+  let first = -1;
+  let last = -1;
+  for (let w = a; w < b; w++)
+    if (env[w] <= mn + 3) {
+      if (first < 0) first = w;
+      last = w;
+    }
+  return Math.round((first + last) / 2);
+}
+
+export interface EdgeTrim {
+  /** 녹화 시작 시 이미 나오던 이전 곡 꼬리 — 이 창 이전은 무시 (없으면 0) */
+  headCut: number;
+  /** 녹화를 끄기 직전 시작된 다음 곡 도입부 — 이 창부터는 무시 (없으면 n) */
+  tailCut: number;
+  headSec: number;
+  tailSec: number;
+}
+
+/**
+ * 녹화 가장자리에 걸린 다른 곡 조각을 찾아 무음으로 바꾼다 (mask 수정).
+ * - 끝: 소리가 녹화 끝까지 이어지는데(끝에 무음 없음) 그 조각이 최소 곡 길이(기본 30s)보다 짧고 앞에 0.5s 이상 무음이 있으면
+ *   → Suno 자동 재생 등으로 녹화된 "다음 곡 도입부"로 보고 제외
+ * - 처음: 녹화 시작부터 소리가 나는 짧은 조각 뒤에 0.5s 이상 무음 → "이전 곡 꼬리"로 보고 제외
+ * 녹화 끝/처음에 딱 붙어 있는 조각만 대상이라, 곡 안의 극적인 쉼(쉼 → 마지막 화음 → 무음)은 건드리지 않는다.
+ */
+export function trimEdgeFragments(env: Float32Array, mask: Uint8Array, p: SilenceParams): EdgeTrim {
+  const n = mask.length;
+  const winSec = p.windowMs / 1000;
+  const gapMin = Math.max(1, Math.round(0.5 / winSec));
+  // 최소 곡 길이보다 짧은 조각은 한 곡일 수 없음 → 다른 곡 조각으로 판단 (기본 30초)
+  const fragMax = Math.round(Math.max(5, p.minSongSec) / winSec);
+  const res: EdgeTrim = { headCut: 0, tailCut: n, headSec: 0, tailSec: 0 };
+  if (n < 4) return res;
+
+  // 끝 조각
+  if (mask[n - 1] === 0) {
+    let w = n - 1;
+    let silentRun = 0;
+    let gapStart = -1;
+    for (; w >= 0 && n - 1 - w <= fragMax + gapMin; w--) {
+      if (mask[w] === 1) {
+        silentRun++;
+        if (silentRun >= gapMin) {
+          // 무음 구간의 시작까지 이어서 찾기
+          let s = w;
+          while (s > 0 && mask[s - 1] === 1) s--;
+          gapStart = s;
+          break;
+        }
+      } else silentRun = 0;
+    }
+    if (gapStart >= 0) {
+      const fragStart = w + silentRun; // 조각 시작 = 무음 끝
+      let gapEnd = fragStart;
+      while (gapEnd < n && mask[gapEnd] === 1) gapEnd++;
+      let soundBefore = false;
+      for (let k = 0; k < gapStart; k++)
+        if (mask[k] === 0) {
+          soundBefore = true;
+          break;
+        }
+      if (soundBefore && n - gapEnd <= fragMax) {
+        for (let k = gapEnd; k < n; k++) mask[k] = 1;
+        res.tailCut = quietMidpoint(env, gapStart, gapEnd);
+        res.tailSec = (n - gapEnd) * winSec;
+      }
+    }
+  }
+
+  // 처음 조각
+  if (mask[0] === 0) {
+    let w = 0;
+    let silentRun = 0;
+    let gapEnd = -1;
+    for (; w < n && w <= fragMax + gapMin; w++) {
+      if (mask[w] === 1) {
+        silentRun++;
+        if (silentRun >= gapMin) {
+          let e = w;
+          while (e + 1 < n && mask[e + 1] === 1) e++;
+          gapEnd = e + 1;
+          break;
+        }
+      } else silentRun = 0;
+    }
+    if (gapEnd >= 0) {
+      let gapStart = gapEnd;
+      while (gapStart > 0 && mask[gapStart - 1] === 1) gapStart--;
+      let soundAfter = false;
+      for (let k = gapEnd; k < n; k++)
+        if (mask[k] === 0) {
+          soundAfter = true;
+          break;
+        }
+      if (soundAfter && gapStart <= fragMax) {
+        for (let k = 0; k < gapStart; k++) mask[k] = 1;
+        res.headCut = quietMidpoint(env, gapStart, gapEnd);
+        res.headSec = gapStart * winSec;
+      }
+    }
+  }
+  return res;
+}
+
 /** 구간 [fromWin, toWin) 안에서 곡의 시작/끝을 찾는다 (초 단위). */
 export function findBoundsInRegion(
   samples: Float32Array,
@@ -164,11 +277,32 @@ export function splitSongs(
   const mask = silentMask(env, p.silenceDb, clickWin);
   const warnings: string[] = [];
   const n = env.length;
+  // 녹화 끝/처음에 걸린 다른 곡 조각 제외 (예: 녹화를 끄기 전 Suno가 다음 곡을 자동 재생)
+  const edge = trimEdgeFragments(env, mask, p);
+  if (edge.tailSec > 0) warnings.push(`녹화 끝에 다른 곡의 시작 부분(약 ${edge.tailSec.toFixed(1)}초)이 있어 제외했어요.`);
+  if (edge.headSec > 0) warnings.push(`녹화 처음에 이전 곡의 끝부분(약 ${edge.headSec.toFixed(1)}초)이 있어 제외했어요.`);
 
-  const silences = runsOf(mask, 1);
-  // 맨 앞/맨 뒤 무음(녹화 여유)은 후보 제외
-  const internal = silences.filter((r) => r.start > 0 && r.end < n);
   const lenSec = (r: Run) => (r.end - r.start) * winSec;
+  let silences = runsOf(mask, 1);
+  // 맨 앞/맨 뒤 무음(녹화 여유)은 후보 제외
+  let internal = silences.filter((r) => r.start > 0 && r.end < n);
+
+  // 곡 수(N)를 알고 있고 녹화가 소리 나는 중에 끝났다면 → 실제 사용 패턴:
+  // "마지막 곡이 끝나고 다음 곡이 시작되자마자 멈추고 녹화 종료" → N+1번째 조각은 길이와 무관하게 제외
+  if (songCount && songCount >= 2 && mask[n - 1] === 0 && internal.length >= songCount) {
+    const byLen = [...internal].sort((x, y) => lenSec(y) - lenSec(x));
+    const top = byLen.slice(0, songCount).sort((a, b) => a.start - b.start);
+    const last = top[top.length - 1];
+    if (lenSec(last) >= 0.5) {
+      const extraSec = (n - last.end) * winSec;
+      for (let k = last.end; k < n; k++) mask[k] = 1;
+      edge.tailCut = quietMidpoint(env, last.start, last.end);
+      edge.tailSec = extraSec;
+      warnings.push(`${songCount}곡 뒤에 이어진 다음 곡의 시작 부분(약 ${extraSec.toFixed(1)}초)을 제외했어요.`);
+      silences = runsOf(mask, 1);
+      internal = silences.filter((r) => r.start > 0 && r.end < n);
+    }
+  }
 
   let chosen: Run[] = [];
   let lowConfidence = new Set<Run>();
@@ -263,7 +397,12 @@ export function splitSongs(
           break;
         }
     }
-    const b = findBoundsInRegion(samples, sampleRate, env, mask, r.from, r.to, Math.max(r.to, nextFirst - 1), p);
+    // 앞 곡 꼬리는 두 곡 사이에서 가장 조용한 구간의 가운데까지만 (다음 곡의 작은 도입부가 붙지 않게)
+    const cap =
+      i + 1 < regions.length
+        ? Math.max(r.to, quietMidpoint(env, r.to, Math.max(r.to + 1, nextFirst)))
+        : Math.min(n, edge.tailCut);
+    const b = findBoundsInRegion(samples, sampleRate, env, mask, Math.max(r.from, i === 0 ? edge.headCut : 0), r.to, cap, p);
     if (!b) continue;
     const review = (r.prevB && lowConfidence.has(r.prevB)) || (r.nextB && lowConfidence.has(r.nextB)) || false;
     songs.push({ srcStartSec: b.startSec, srcEndSec: b.endSec, needsReview: review });
