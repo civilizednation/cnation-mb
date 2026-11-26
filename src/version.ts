@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.9.0';
+export const APP_VERSION = '1.9.1';
 
 export interface Revision {
   version: string;
@@ -9,6 +9,16 @@ export interface Revision {
 
 /** 개정 이력 (최신이 위) — 앱 하단 (rev. history) 링크에서 표시 */
 export const REVISIONS: Revision[] = [
+  {
+    version: '1.9.1',
+    date: '2026-11-26',
+    title: '곡 분리: 녹화 끝/처음에 걸린 다른 곡 조각 제외',
+    changes: [
+      '녹화를 끄기 직전 Suno가 다음 곡을 자동 재생해 마지막 곡 끝에 다음 곡 도입부가 붙던 문제 수정 — 녹화 끝까지 이어지는 15초 이하 조각(앞에 0.5초 이상 무음)은 자동 제외하고 안내',
+      '녹화 시작 시 이미 나오던 이전 곡 꼬리도 같은 방식으로 제외',
+      '곡과 곡 사이에서 앞 곡의 끝점이 가장 조용한 구간의 가운데를 넘지 않도록 보완 (다음 곡의 작은 도입부가 붙지 않게)',
+    ],
+  },
   {
     version: '1.9.0',
     date: '2026-11-26',

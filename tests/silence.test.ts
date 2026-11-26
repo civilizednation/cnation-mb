@@ -103,6 +103,59 @@ describe('splitSongs', () => {
   });
 });
 
+describe('edge fragments & end cap', () => {
+  const song = (s: number) => [{ t: 'tone' as const, s }, { t: 'fade' as const, s: 2 }];
+
+  it('drops the next song intro captured at the very end of the recording', () => {
+    // 05번 → 04번 → (녹화 끄기 직전 Suno 자동 재생) 다음 곡 2초 — 끝까지 소리
+    const { x, marks } = build([{ t: 'sil', s: 3 }, ...song(40), { t: 'sil', s: 2 }, ...song(35), { t: 'sil', s: 1.2 }, { t: 'tone', s: 2 }]);
+    const fragStart = marks[marks.length - 1];
+    const r = splitSongs(x, SR, DEFAULT_SILENCE, 2);
+    expect(r.songs).toHaveLength(2);
+    expect(r.songs[1].srcEndSec).toBeLessThan(fragStart);
+    expect(r.songs[1].srcEndSec).toBeGreaterThan(marks[4] + 1); // 04번 페이드 꼬리는 유지
+    expect(r.warnings.join()).toContain('녹화 끝에 다른 곡');
+    // 곡 수 자동이어도 동일
+    const auto = splitSongs(x, SR, DEFAULT_SILENCE, null);
+    expect(auto.songs).toHaveLength(2);
+    expect(auto.songs[1].srcEndSec).toBeLessThan(fragStart);
+  });
+
+  it('drops the previous song tail captured at the very start', () => {
+    const { x, marks } = build([{ t: 'tone', s: 3 }, { t: 'sil', s: 1.5 }, ...song(40), { t: 'sil', s: 3 }, ...song(35), { t: 'sil', s: 3 }]);
+    const r = splitSongs(x, SR, DEFAULT_SILENCE, 2);
+    expect(r.songs).toHaveLength(2);
+    expect(Math.abs(r.songs[0].srcStartSec - marks[2])).toBeLessThan(0.02);
+    expect(r.warnings.join()).toContain('녹화 처음에 이전 곡');
+  });
+
+  it('keeps a dramatic final hit after a pause (not touching the recording end)', () => {
+    const { x, marks } = build([{ t: 'sil', s: 3 }, { t: 'tone', s: 40 }, { t: 'sil', s: 1.2 }, { t: 'tone', s: 2 }, { t: 'sil', s: 4 }]);
+    const r = splitSongs(x, SR, DEFAULT_SILENCE, null);
+    expect(r.songs).toHaveLength(1);
+    expect(r.songs[0].srcEndSec).toBeGreaterThan(marks[3] + 1.9);
+    expect(r.warnings.join()).not.toContain('녹화 끝에');
+  });
+
+  it('caps the end at the quietest point between songs (noisy gap above tailDb)', () => {
+    // 곡 사이가 -57dB 잡음(무음 기준 -50보다 작고 꼬리 기준 -60보다 큼)으로 이어지는 경우
+    const n1 = Math.round(40 * SR), gap = Math.round(3 * SR), n2 = Math.round(40 * SR);
+    const x = new Float32Array(SR * 3 + n1 + gap + n2 + SR * 3);
+    let o = SR * 3;
+    for (let i = 0; i < n1; i++) x[o + i] = 0.3 * Math.sin((2 * Math.PI * 440 * i) / SR);
+    o += n1;
+    const songEnd = o / SR;
+    for (let i = 0; i < gap; i++) x[o + i] = 0.0014 * Math.sin((2 * Math.PI * 300 * i) / SR); // ≈ -57dBFS RMS
+    o += gap;
+    const nextStart = o / SR;
+    for (let i = 0; i < n2; i++) x[o + i] = 0.3 * Math.sin((2 * Math.PI * 330 * i) / SR);
+    const r = splitSongs(x, SR, DEFAULT_SILENCE, 2);
+    expect(r.songs).toHaveLength(2);
+    expect(r.songs[0].srcEndSec).toBeGreaterThan(songEnd);
+    expect(r.songs[0].srcEndSec).toBeLessThan(nextStart - 1); // 다음 곡 직전까지 끌려가지 않음
+  });
+});
+
 describe('detectBounds', () => {
   it('finds first sound within 10ms', () => {
     const { x, marks } = build([{ t: 'sil', s: 1.234 }, { t: 'tone', s: 10 }, { t: 'fade', s: 2 }, { t: 'sil', s: 3 }]);
