@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.8.0';
+export const APP_VERSION = '1.8.1';
 
 export interface Revision {
   version: string;
@@ -9,6 +9,15 @@ export interface Revision {
 
 /** 개정 이력 (최신이 위) — 앱 하단 (rev. history) 링크에서 표시 */
 export const REVISIONS: Revision[] = [
+  {
+    version: '1.8.1',
+    date: '2026-11-26',
+    title: '녹화 가이드: 볼륨 안내',
+    changes: [
+      '녹화 가이드에 "볼륨은 0이어도 괜찮아요 (iPhone)" 추가 — iPhone 실기기 확인: 기기 볼륨을 0으로 하거나 녹화 중 바꿔도 항상 같은 크기로 녹화됨',
+      'Suno 화면 안의 볼륨은 녹화 중 건드리지 않기, Android는 기종별로 볼륨 1~2칸 이상 권장',
+    ],
+  },
   {
     version: '1.8.0',
     date: '2026-11-25',
